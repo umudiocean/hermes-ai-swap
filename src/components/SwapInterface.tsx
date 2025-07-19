@@ -19,7 +19,7 @@ import { web3Service } from "../lib/web3";
 import { pancakeSwapService, SWAP_FEE_BNB, PANCAKESWAP_ROUTER_ADDRESS, WBNB_ADDRESS } from "../lib/pancakeswap";
 import { HERMES_RESWAP_V2_ADDRESS } from "../lib/constants";
 import { hermesReswapV2Service } from "../lib/hermesReswapV2";
-import { hermesSwapV4Service } from "../services/hermesSwapV4Service";
+import hermesSwapV4Service from "../services/hermesSwapV4Service";
 import { priceService } from "../lib/priceService";
 import { ethers } from "ethers";
 import { ArrowUpDown } from "lucide-react";
