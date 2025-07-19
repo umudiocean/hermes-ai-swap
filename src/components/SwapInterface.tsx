@@ -106,7 +106,7 @@ export default function SwapInterface() {
   };
 
   const handleSwap = async () => {
-    if (!isConnected || !address) {
+    if (!isConnected || !address || !fromToken || !toToken) {
       toast({
         title: "Wallet Not Connected",
         description: "Please connect your wallet first",
@@ -169,14 +169,7 @@ export default function SwapInterface() {
       console.log("✅ Swap successful:", txHash);
       
       // Record swap for rewards
-      recordSwap({
-        fromToken: fromToken.symbol,
-        toToken: toToken.symbol,
-        amountIn: swapAmount,
-        amountOut: receiveAmount,
-        txHash: txHash,
-        timestamp: Date.now(),
-      });
+      recordSwap(txHash, swapAmount, receiveAmount, fromToken.symbol, toToken.symbol);
       
       // Update balances
       await updateBalances();
@@ -241,7 +234,7 @@ export default function SwapInterface() {
         <div className="flex items-center space-x-2">
           <TokenSelector
             selectedToken={fromToken}
-            onTokenSelect={setFromToken}
+            onSelectToken={setFromToken}
             disabled={isSwapping}
           />
           <Input
@@ -284,7 +277,7 @@ export default function SwapInterface() {
         <div className="flex items-center space-x-2">
           <TokenSelector
             selectedToken={toToken}
-            onTokenSelect={setToToken}
+            onSelectToken={setToToken}
             disabled={isSwapping}
           />
           <Input
