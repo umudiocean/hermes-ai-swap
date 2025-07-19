@@ -1,179 +1,167 @@
 import { ethers } from "ethers";
 
-/**
- * Production-grade BSC RPC Manager with automatic failover
- * Ensures 100% uptime for price calculations and swap operations
- */
-
-// Production-tested BSC RPC endpoints (verified working)
+// BSC RPC endpoints with reliability ranking
 const BSC_RPC_ENDPOINTS = [
-  "https://bsc-dataseed.binance.org",           // Binance official - primary
-  "https://bsc-dataseed1.binance.org",          // Binance backup
-  "https://bsc-dataseed1.defibit.io",           // DeFibit - reliable
-  "https://bsc-dataseed1.ninicoin.io",          // Ninicoin - working
+  "https://bsc-dataseed.binance.org",           // Ana endpoint
+  "https://bsc-dataseed1.binance.org",          // Binance yedek
+  "https://bsc.publicnode.com",                 // Public node
+  "https://rpc.ankr.com/bsc",                   // Ankr RPC
+  "https://bsc-dataseed1.defibit.io",           // Defibit
+  "https://bsc-dataseed1.ninicoin.io",          // Ninicoin
+  "https://bsc.nodereal.io",                    // NodeReal
+  "https://bsc-mainnet.nodereal.io/v1/64a9df0874fb4a93b9d0a3849de012d3"
 ];
 
-interface RpcEndpoint {
-  url: string;
-  provider: ethers.JsonRpcProvider;
-  isHealthy: boolean;
-  lastCheck: number;
-  latency: number;
+// BSC için özel gas yapılandırması
+export const BSC_GAS_CONFIG = {
+  gasPrice: ethers.parseUnits("3", "gwei"),     // BSC için 3 Gwei
+  gasLimit: 300000,                             // Yeterli gas limit
+  type: 0,                                      // Legacy transaction (EIP-1559 yok)
+};
+
+interface RPCStats {
+  endpoint: string;
+  successCount: number;
+  errorCount: number;
+  lastUsed: number;
+  averageResponseTime: number;
 }
 
 class BSCRpcManager {
-  private endpoints: Map<string, RpcEndpoint> = new Map();
-  private currentProvider: ethers.JsonRpcProvider | null = null;
-  private healthCheckInterval: NodeJS.Timeout | null = null;
+  private providers: ethers.JsonRpcProvider[] = [];
+  private stats: Map<string, RPCStats> = new Map();
+  private currentProviderIndex = 0;
 
   constructor() {
-    this.initializeEndpoints();
-    this.startHealthMonitoring();
+    this.initializeProviders();
   }
 
-  private initializeEndpoints() {
-    BSC_RPC_ENDPOINTS.forEach(url => {
-      const provider = new ethers.JsonRpcProvider(url);
-      this.endpoints.set(url, {
-        url,
-        provider,
-        isHealthy: true,
-        lastCheck: 0,
-        latency: 0
-      });
+  private initializeProviders() {
+    BSC_RPC_ENDPOINTS.forEach((endpoint, index) => {
+      try {
+        const provider = new ethers.JsonRpcProvider(endpoint, {
+          chainId: 56,
+          name: "binance-smart-chain"
+        });
+        
+        this.providers.push(provider);
+        
+        this.stats.set(endpoint, {
+          endpoint,
+          successCount: 0,
+          errorCount: 0,
+          lastUsed: 0,
+          averageResponseTime: 0
+        });
+      } catch (error) {
+        console.warn(`Failed to initialize RPC provider ${endpoint}:`, error);
+      }
     });
   }
 
-  private startHealthMonitoring() {
-    // Check endpoint health every 30 seconds
-    this.healthCheckInterval = setInterval(() => {
-      this.checkEndpointHealth();
-    }, 30000);
+  getOptimalProvider(): ethers.JsonRpcProvider {
+    if (this.providers.length === 0) {
+      throw new Error("No RPC providers available");
+    }
+
+    // Get the provider with best stats
+    const bestProvider = this.getBestProvider();
+    return bestProvider;
   }
 
-  private async checkEndpointHealth() {
-    const healthPromises = Array.from(this.endpoints.values()).map(async (endpoint) => {
+  private getBestProvider(): ethers.JsonRpcProvider {
+    let bestEndpoint = BSC_RPC_ENDPOINTS[0];
+    let bestScore = -1;
+
+    for (const [endpoint, stats] of this.stats) {
+      const successRate = stats.successCount / (stats.successCount + stats.errorCount);
+      const timeSinceLastUse = Date.now() - stats.lastUsed;
+      const score = successRate * 100 + (timeSinceLastUse / 1000); // Prefer unused providers
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestEndpoint = endpoint;
+      }
+    }
+
+    const providerIndex = BSC_RPC_ENDPOINTS.indexOf(bestEndpoint);
+    return this.providers[providerIndex] || this.providers[0];
+  }
+
+  async executeWithRetry<T>(operation: (provider: ethers.JsonRpcProvider) => Promise<T>): Promise<T> {
+    const errors: Error[] = [];
+
+    for (let attempt = 0; attempt < this.providers.length; attempt++) {
+      const provider = this.providers[attempt];
+      const endpoint = BSC_RPC_ENDPOINTS[attempt];
+
       try {
         const startTime = Date.now();
-        await endpoint.provider.getBlockNumber();
-        const latency = Date.now() - startTime;
-        
-        endpoint.isHealthy = true;
-        endpoint.lastCheck = Date.now();
-        endpoint.latency = latency;
-        
-        return { url: endpoint.url, healthy: true, latency };
-      } catch (error) {
-        endpoint.isHealthy = false;
-        endpoint.lastCheck = Date.now();
-        endpoint.latency = 999999; // High latency for failed endpoints
-        
-        console.warn(`BSC RPC endpoint unhealthy: ${endpoint.url}`, error);
-        return { url: endpoint.url, healthy: false, latency: 999999 };
-      }
-    });
+        const result = await operation(provider);
+        const responseTime = Date.now() - startTime;
 
-    await Promise.all(healthPromises);
-  }
+        // Update stats
+        const stats = this.stats.get(endpoint);
+        if (stats) {
+          stats.successCount++;
+          stats.lastUsed = Date.now();
+          stats.averageResponseTime = (stats.averageResponseTime + responseTime) / 2;
+        }
 
-  /**
-   * Get any available provider (compatibility method)
-   */
-  public getProvider(): ethers.JsonRpcProvider {
-    return this.getOptimalProvider();
-  }
-
-  /**
-   * Get the fastest healthy RPC provider
-   */
-  public getOptimalProvider(): ethers.JsonRpcProvider {
-    const healthyEndpoints = Array.from(this.endpoints.values())
-      .filter(endpoint => endpoint.isHealthy)
-      .sort((a, b) => a.latency - b.latency);
-
-    if (healthyEndpoints.length === 0) {
-      console.error("No healthy BSC RPC endpoints available!");
-      // Fallback to first endpoint even if unhealthy
-      const firstEndpoint = Array.from(this.endpoints.values())[0];
-      return firstEndpoint.provider;
-    }
-
-    const optimalEndpoint = healthyEndpoints[0];
-    this.currentProvider = optimalEndpoint.provider;
-    
-    // Using optimal BSC RPC with latency tracking
-    return optimalEndpoint.provider;
-  }
-
-  /**
-   * Execute RPC call with automatic retry across multiple endpoints
-   */
-  public async executeWithRetry<T>(
-    operation: (provider: ethers.JsonRpcProvider) => Promise<T>,
-    maxRetries: number = 3
-  ): Promise<T> {
-    const healthyEndpoints = Array.from(this.endpoints.values())
-      .filter(endpoint => endpoint.isHealthy)
-      .sort((a, b) => a.latency - b.latency);
-
-    let lastError: Error | null = null;
-
-    for (let attempt = 0; attempt < Math.min(maxRetries, healthyEndpoints.length); attempt++) {
-      try {
-        const endpoint = healthyEndpoints[attempt];
-        const result = await operation(endpoint.provider);
-        
-        // Success - mark this endpoint as preferred
-        this.currentProvider = endpoint.provider;
         return result;
       } catch (error: any) {
-        lastError = error;
-        console.warn(`RPC attempt ${attempt + 1} failed:`, error.message);
+        errors.push(error);
         
-        // Mark endpoint as potentially unhealthy
-        if (healthyEndpoints[attempt]) {
-          healthyEndpoints[attempt].isHealthy = false;
+        // Update stats
+        const stats = this.stats.get(endpoint);
+        if (stats) {
+          stats.errorCount++;
+          stats.lastUsed = Date.now();
         }
+
+        console.warn(`RPC attempt ${attempt + 1} failed (${endpoint}):`, error.message);
         
-        // Small delay before retry
-        if (attempt < maxRetries - 1) {
-          await new Promise(resolve => setTimeout(resolve, 200));
-        }
+        // Continue to next provider
+        continue;
       }
     }
 
-    throw new Error(`All BSC RPC endpoints failed. Last error: ${lastError?.message}`);
+    // All providers failed
+    throw new Error(`All RPC providers failed: ${errors.map(e => e.message).join(', ')}`);
   }
 
-  /**
-   * Get current provider statistics for monitoring
-   */
-  public getStats() {
-    const stats = Array.from(this.endpoints.values()).map(endpoint => ({
-      url: endpoint.url,
-      healthy: endpoint.isHealthy,
-      latency: endpoint.latency,
-      lastCheck: new Date(endpoint.lastCheck).toISOString()
-    }));
-
-    const healthyCount = stats.filter(s => s.healthy).length;
-    
-    return {
-      totalEndpoints: stats.length,
-      healthyEndpoints: healthyCount,
-      currentProvider: this.currentProvider ? "Active" : "None",
-      endpoints: stats
-    };
-  }
-
-  public destroy() {
-    if (this.healthCheckInterval) {
-      clearInterval(this.healthCheckInterval);
+  async testConnection(): Promise<boolean> {
+    try {
+      const provider = this.getOptimalProvider();
+      const blockNumber = await provider.getBlockNumber();
+      console.log("✅ BSC RPC connection successful - Block:", blockNumber);
+      return true;
+    } catch (error) {
+      console.error("❌ BSC RPC connection failed:", error);
+      return false;
     }
+  }
+
+  getStats(): RPCStats[] {
+    return Array.from(this.stats.values());
+  }
+
+  // BSC için özel hata yönetimi
+  handleBSCError(error: any): string {
+    if (error.message.includes("eth_maxPriorityFeePerGas")) {
+      return "BSC doesn't support EIP-1559, using legacy transaction";
+    }
+    
+    if (error.message.includes("missing trie node")) {
+      return "RPC node sync issue, trying fallback provider";
+    }
+    
+    if (error.message.includes("missing revert data")) {
+      return "Contract call failed, contract may not exist";
+    }
+    
+    return error.message || "Unknown BSC error";
   }
 }
 
-// Global singleton instance
 export const bscRpcManager = new BSCRpcManager();
-export { BSCRpcManager };
-export default bscRpcManager;

@@ -1,90 +1,197 @@
 import { ethers } from "ethers";
+import { bscRpcManager } from "./bscRpcManager";
 
-interface TokenPrice {
-  usd: number;
-  usd_24h_change?: number;
+// Token interface
+interface Token {
+  address: string;
+  symbol: string;
+  decimals: number;
+  name: string;
 }
 
-interface PriceCache {
-  [symbol: string]: {
-    price: TokenPrice;
-    timestamp: number;
-  };
-}
+// Price cache
+const priceCache = new Map<string, { price: number; timestamp: number }>();
+const CACHE_DURATION = 30000; // 30 seconds
 
-class PriceService {
-  private cache: PriceCache = {};
-  private readonly CACHE_DURATION = 30000; // 30 seconds
+export class PriceService {
+  private provider: ethers.JsonRpcProvider;
 
-  async getTokenPrice(symbol: string): Promise<TokenPrice> {
-    console.log(`🔧 Fetching price for ${symbol}...`);
-    const cacheKey = symbol.toLowerCase();
-    const cached = this.cache[cacheKey];
+  constructor() {
+    this.provider = bscRpcManager.getOptimalProvider();
+  }
+
+  // Get token price from CoinGecko
+  async getTokenPrice(tokenId: string): Promise<number> {
+    const cacheKey = `coingecko_${tokenId}`;
+    const cached = priceCache.get(cacheKey);
     
-    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-      console.log(`✅ Using cached price for ${symbol}: $${cached.price.usd}`);
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
       return cached.price;
     }
 
     try {
-      const coinId = this.getCoinGeckoId(symbol);
-      console.log(`🔧 Fetching from CoinGecko for ${symbol} (${coinId})...`);
-      
       const response = await fetch(
-        `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd&include_24hr_change=true`
+        `https://api.coingecko.com/api/v3/simple/price?ids=${tokenId}&vs_currencies=usd`
       );
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`CoinGecko API error: ${response.status}`);
       }
       
       const data = await response.json();
-      const price = data[coinId];
+      const price = data[tokenId]?.usd || 0;
       
-      if (!price) {
-        throw new Error(`Price not found for ${symbol}`);
-      }
-
-      const result: TokenPrice = {
-        usd: price.usd,
-        usd_24h_change: price.usd_24h_change,
-      };
-
-      this.cache[cacheKey] = {
-        price: result,
-        timestamp: Date.now(),
-      };
-
-      console.log(`✅ Price fetched for ${symbol}: $${result.usd}`);
-      return result;
+      priceCache.set(cacheKey, { price, timestamp: Date.now() });
+      return price;
     } catch (error) {
-      console.error(`❌ Price fetch error for ${symbol}:`, error);
-      return { usd: 0 };
+      console.error(`Failed to get price for ${tokenId}:`, error);
+      return 0;
     }
   }
 
-  private getCoinGeckoId(symbol: string): string {
-    const mapping: { [key: string]: string } = {
-      'BNB': 'binancecoin',
-      'HERMES': 'hermes-protocol',
-      'BUSD': 'binance-usd',
-      'USDT': 'tether',
-      'USDC': 'usd-coin',
-    };
-    return mapping[symbol.toUpperCase()] || symbol.toLowerCase();
+  // Get BNB price
+  async getBNBPrice(): Promise<number> {
+    return this.getTokenPrice("binancecoin");
   }
 
-  // Clear cache
-  clearCache() {
-    this.cache = {};
-    console.log('🔧 Price cache cleared');
+  // Get HERMES price
+  async getHermesPrice(): Promise<number> {
+    return this.getTokenPrice("hermes-protocol");
   }
 
-  // Get cache status
-  getCacheStatus() {
+  // Get swap quote from PancakeSwap
+  async getSwapQuote(
+    amountIn: string,
+    fromToken: Token,
+    toToken: Token
+  ): Promise<{
+    amountOut: string;
+    priceImpact: number;
+    gasEstimate: string;
+  }> {
+    try {
+      // For BNB -> HERMES swap, use simple calculation
+      if (fromToken.symbol === "BNB" && toToken.symbol === "HERMES") {
+        const bnbPrice = await this.getBNBPrice();
+        const hermesPrice = await this.getHermesPrice();
+        
+        if (bnbPrice === 0 || hermesPrice === 0) {
+          throw new Error("Unable to get token prices");
+        }
+
+        const amountInBNB = parseFloat(amountIn);
+        const amountInUSD = amountInBNB * bnbPrice;
+        const amountOutHERMES = amountInUSD / hermesPrice;
+        
+        // Apply 0.1% fee
+        const fee = amountOutHERMES * 0.001;
+        const finalAmount = amountOutHERMES - fee;
+
+        return {
+          amountOut: finalAmount.toFixed(6),
+          priceImpact: 0.1, // 0.1% fee
+          gasEstimate: "0.002" // Estimated gas cost
+        };
+      }
+
+      // For HERMES -> BNB swap
+      if (fromToken.symbol === "HERMES" && toToken.symbol === "BNB") {
+        const bnbPrice = await this.getBNBPrice();
+        const hermesPrice = await this.getHermesPrice();
+        
+        if (bnbPrice === 0 || hermesPrice === 0) {
+          throw new Error("Unable to get token prices");
+        }
+
+        const amountInHERMES = parseFloat(amountIn);
+        const amountInUSD = amountInHERMES * hermesPrice;
+        const amountOutBNB = amountInUSD / bnbPrice;
+        
+        // Apply 0.1% fee
+        const fee = amountOutBNB * 0.001;
+        const finalAmount = amountOutBNB - fee;
+
+        return {
+          amountOut: finalAmount.toFixed(6),
+          priceImpact: 0.1, // 0.1% fee
+          gasEstimate: "0.002" // Estimated gas cost
+        };
+      }
+
+      throw new Error("Unsupported token pair");
+    } catch (error) {
+      console.error("Failed to get swap quote:", error);
+      return {
+        amountOut: "0",
+        priceImpact: 0,
+        gasEstimate: "0.002"
+      };
+    }
+  }
+
+  // Calculate price impact
+  calculatePriceImpact(amountIn: string, amountOut: string, fromToken: Token, toToken: Token): number {
+    try {
+      const inputValue = parseFloat(amountIn);
+      const outputValue = parseFloat(amountOut);
+      
+      if (inputValue === 0) return 0;
+      
+      // Simple price impact calculation
+      const impact = ((inputValue - outputValue) / inputValue) * 100;
+      return Math.max(0, Math.min(impact, 100)); // Clamp between 0-100%
+    } catch (error) {
+      console.error("Failed to calculate price impact:", error);
+      return 0;
+    }
+  }
+
+  // Get minimum amount out for slippage protection
+  calculateMinimumAmountOut(amountOut: string, slippage: number): string {
+    try {
+      const amount = parseFloat(amountOut);
+      const slippageMultiplier = 1 - (slippage / 100);
+      const minimumAmount = amount * slippageMultiplier;
+      return minimumAmount.toFixed(6);
+    } catch (error) {
+      console.error("Failed to calculate minimum amount out:", error);
+      return "0";
+    }
+  }
+
+  // Format token amount with proper decimals
+  formatTokenAmount(amount: string, decimals: number): string {
+    try {
+      const parsed = ethers.parseUnits(amount, decimals);
+      return ethers.formatUnits(parsed, decimals);
+    } catch (error) {
+      console.error("Failed to format token amount:", error);
+      return "0";
+    }
+  }
+
+  // Get USD value of token amount
+  async getUSDValue(amount: string, tokenId: string): Promise<number> {
+    try {
+      const price = await this.getTokenPrice(tokenId);
+      const amountNum = parseFloat(amount);
+      return amountNum * price;
+    } catch (error) {
+      console.error("Failed to get USD value:", error);
+      return 0;
+    }
+  }
+
+  // Clear price cache
+  clearCache(): void {
+    priceCache.clear();
+  }
+
+  // Get cache stats
+  getCacheStats(): { size: number; entries: string[] } {
     return {
-      cachedSymbols: Object.keys(this.cache),
-      cacheSize: Object.keys(this.cache).length,
+      size: priceCache.size,
+      entries: Array.from(priceCache.keys())
     };
   }
 }
