@@ -21,7 +21,7 @@ interface WalletState {
 
 const HERMES_CONTRACT_ADDRESS = '0x9495aB3549338BF14aD2F86CbcF79C7b574bba37';
 
-// Multiple RPC endpoints for fallback
+// Multiple RPC endpoints for fallback - Updated with more reliable endpoints
 const BSC_RPC_URLS = [
   'https://bsc-dataseed1.binance.org',
   'https://bsc-dataseed2.binance.org',
@@ -29,12 +29,73 @@ const BSC_RPC_URLS = [
   'https://bsc-dataseed4.binance.org',
   'https://bsc.nodereal.io',
   'https://bsc-mainnet.nodereal.io/v1/64a9df0874fb4a93b9d0a3849de012d3',
+  'https://bsc.publicnode.com',
+  'https://bsc-rpc.publicnode.com',
+  'https://bsc.blockpi.network/v1/rpc/public',
+  'https://bsc.getblock.io/mainnet/',
 ];
 
-// Fallback provider for when MetaMask RPC fails
+// Enhanced fallback provider with better error handling
 const createFallbackProvider = () => {
-  const providers = BSC_RPC_URLS.map(url => new ethers.JsonRpcProvider(url));
+  const providers = BSC_RPC_URLS.map(url => {
+    const provider = new ethers.JsonRpcProvider(url);
+    return provider;
+  });
+  
+  // Use priority-based fallback
   return new ethers.FallbackProvider(providers, 1);
+};
+
+// Enhanced balance fetching with multiple fallbacks
+const fetchBalanceWithFallback = async (address: string, contractAddress?: string) => {
+  const errors = [];
+  
+  // Try MetaMask first
+  try {
+    if (window.ethereum) {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      if (contractAddress) {
+        const contract = new ethers.Contract(
+          contractAddress,
+          ['function balanceOf(address) view returns (uint256)'],
+          provider
+        );
+        const balance = await contract.balanceOf(address);
+        return ethers.formatEther(balance);
+      } else {
+        const balance = await provider.getBalance(address);
+        return ethers.formatEther(balance);
+      }
+    }
+  } catch (error: any) {
+    errors.push(`MetaMask: ${error.message}`);
+  }
+  
+  // Try fallback providers
+  for (let i = 0; i < BSC_RPC_URLS.length; i++) {
+    try {
+      const provider = new ethers.JsonRpcProvider(BSC_RPC_URLS[i]);
+      
+      if (contractAddress) {
+        const contract = new ethers.Contract(
+          contractAddress,
+          ['function balanceOf(address) view returns (uint256)'],
+          provider
+        );
+        const balance = await contract.balanceOf(address);
+        return ethers.formatEther(balance);
+      } else {
+        const balance = await provider.getBalance(address);
+        return ethers.formatEther(balance);
+      }
+    } catch (error: any) {
+      errors.push(`RPC ${i + 1}: ${error.message}`);
+    }
+  }
+  
+  // If all failed, return 0
+  console.warn('⚠️ All RPC endpoints failed:', errors);
+  return "0.00";
 };
 
 export const useWalletStore = create<WalletState>((set, get) => ({
@@ -113,63 +174,19 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   updateBalances: async () => {
     console.log('🔧 Updating balances...');
     try {
-      const { address, provider } = get();
-      if (!address || !provider) {
-        console.log('❌ No address or provider available');
+      const { address } = get();
+      if (!address) {
+        console.log('❌ No address available');
         return;
       }
 
-      console.log('🔧 Fetching BNB balance...');
-      // Try to get BNB balance with fallback
-      let bnbFormatted = "0.00";
-      try {
-        const bnbBalance = await provider.getBalance(address);
-        bnbFormatted = ethers.formatEther(bnbBalance);
-        console.log('✅ BNB balance:', bnbFormatted);
-      } catch (error: any) {
-        console.warn('⚠️ MetaMask RPC failed, trying fallback provider...');
-        try {
-          const fallbackProvider = createFallbackProvider();
-          const bnbBalance = await fallbackProvider.getBalance(address);
-          bnbFormatted = ethers.formatEther(bnbBalance);
-          console.log('✅ BNB balance (fallback):', bnbFormatted);
-        } catch (fallbackError) {
-          console.error('❌ Both MetaMask and fallback RPC failed:', fallbackError);
-          bnbFormatted = "0.00";
-        }
-      }
+      console.log('🔧 Fetching BNB balance with enhanced fallback...');
+      const bnbFormatted = await fetchBalanceWithFallback(address);
+      console.log('✅ BNB balance:', bnbFormatted);
 
-      console.log('🔧 Fetching HERMES balance...');
-      // Get HERMES balance with fallback
-      let hermesFormatted = "0.00";
-      try {
-        const hermesContract = new ethers.Contract(
-          HERMES_CONTRACT_ADDRESS,
-          ['function balanceOf(address) view returns (uint256)'],
-          provider
-        );
-        
-        const hermesBalance = await hermesContract.balanceOf(address);
-        hermesFormatted = ethers.formatEther(hermesBalance);
-        console.log('✅ HERMES balance:', hermesFormatted);
-      } catch (error: any) {
-        console.warn('⚠️ MetaMask HERMES balance failed, trying fallback...');
-        try {
-          const fallbackProvider = createFallbackProvider();
-          const hermesContract = new ethers.Contract(
-            HERMES_CONTRACT_ADDRESS,
-            ['function balanceOf(address) view returns (uint256)'],
-            fallbackProvider
-          );
-          
-          const hermesBalance = await hermesContract.balanceOf(address);
-          hermesFormatted = ethers.formatEther(hermesBalance);
-          console.log('✅ HERMES balance (fallback):', hermesFormatted);
-        } catch (fallbackError) {
-          console.warn('⚠️ Failed to get HERMES balance:', fallbackError);
-          hermesFormatted = "0.00";
-        }
-      }
+      console.log('🔧 Fetching HERMES balance with enhanced fallback...');
+      const hermesFormatted = await fetchBalanceWithFallback(address, HERMES_CONTRACT_ADDRESS);
+      console.log('✅ HERMES balance:', hermesFormatted);
 
       set({
         bnbBalance: parseFloat(bnbFormatted).toFixed(4),
