@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { hermesSwapV3Service } from "@/services/hermesSwapV4Service";
+import hermesSwapV3Service from "@/services/hermesSwapV4Service";
 import { useWalletStore } from "./useWalletStore";
 
 interface ReferralV3Stats {
@@ -96,10 +96,12 @@ export const useReferralV3Store = create<ReferralV3State>()(
 
         try {
           const stats = await hermesSwapV3Service.getReferralStats(address);
-          set({ referralStats: stats });
-          
-          if (stats.hasCode && stats.code > 0) {
-            set({ myReferralCode: stats.code });
+          if (stats) {
+            set({ referralStats: stats });
+            
+            if (stats.hasCode && stats.code > 0) {
+              set({ myReferralCode: stats.code });
+            }
           }
         } catch (error: any) {
           console.error("Error getting referral stats:", error);

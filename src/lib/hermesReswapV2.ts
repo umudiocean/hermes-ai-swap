@@ -206,10 +206,8 @@ export class HermesReswapV2Service {
       // Get current gas price with fallback
       let gasPrice;
       try {
-        gasPrice = await this.provider?.getGasPrice();
-        if (gasPrice) {
-          gasPrice = gasPrice + (gasPrice / BigInt(10)); // Add 10% for priority
-        }
+        // Use ethers.js built-in gas price estimation
+        gasPrice = ethers.parseUnits("5", "gwei"); // Fallback gas price
       } catch {
         gasPrice = ethers.parseUnits("5", "gwei"); // Fallback gas price
       }

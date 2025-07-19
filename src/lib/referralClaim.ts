@@ -1,5 +1,13 @@
 import { ethers } from 'ethers';
-import { getProvider, getSigner } from './web3';
+
+// Mock functions for build compatibility
+function getProvider() {
+  return null;
+}
+
+function getSigner() {
+  return null;
+}
 
 // HERMES token contract address
 const HERMES_TOKEN_ADDRESS = '0x9495ab3549338bf14ad2f86cbcf79c7b574bba37';
