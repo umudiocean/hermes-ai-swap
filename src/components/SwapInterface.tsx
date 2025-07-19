@@ -54,7 +54,8 @@ export default function SwapInterface() {
     updateBalances,
     bnbBalance,
     hermesBalance,
-    isLoading
+    isLoading,
+    web3Service
   } = useWalletStore();
   const { recordSwap } = useRewardsStore();
   const { fromToken, toToken, setFromToken, setToToken, swapTokens: swapTokenSelection } = useTokenStore();
@@ -168,7 +169,7 @@ export default function SwapInterface() {
       setIsCalculating(true);
       try {
         // Initialize PancakeSwap service if connected
-        if (web3Service && web3Service.provider && web3Service.signer && address) {
+        if (web3Service?.provider && web3Service?.signer && address) {
           const provider = web3Service.provider;
           const signer = web3Service.signer;
           
@@ -235,8 +236,8 @@ export default function SwapInterface() {
         
         // Only fetch if cache miss or both tokens need update
         if (!cachedFromBalance || !cachedToBalance) {
-          const provider = web3Service.provider;
-          const signer = web3Service.signer;
+          const provider = web3Service?.provider;
+          const signer = web3Service?.signer;
           if (provider && signer) {
             await pancakeSwapService.initialize(provider, signer);
             
@@ -274,7 +275,7 @@ export default function SwapInterface() {
 
   useEffect(() => {
     const updateGasEstimate = async () => {
-      if (isConnected && web3Service.provider && web3Service.signer) {
+      if (isConnected && web3Service?.provider && web3Service?.signer) {
         try {
           const estimate = await web3Service.getGasEstimate();
           setGasEstimate(estimate);
