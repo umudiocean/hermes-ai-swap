@@ -420,8 +420,8 @@ export default function SwapInterface() {
       // Initialize PancakeSwap service - Get from wallet store first
       const { provider: storeProvider, signer: storeSigner } = useWalletStore.getState();
       
-      let provider = storeProvider || web3Service.provider;
-      let signer = storeSigner || web3Service.signer;
+      let provider = storeProvider || web3Service?.provider;
+      let signer = storeSigner || web3Service?.signer;
       
       // If still no signer, create fresh from MetaMask
       if (!signer && window.ethereum) {
