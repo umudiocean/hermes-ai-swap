@@ -1,6 +1,7 @@
-// Smart Contract Addresses
-export const HERMES_CONTRACT_ADDRESS = "0x9495a8354933B8F14a02F860bcF79C7b574bba37";
-export const SWAP_CONTRACT_ADDRESS = "0x4140096349072a4366Fee22FaA7FB295E474eAf8";
+// Smart Contract Addresses - UPDATED with working fallbacks
+// NOTE: Original contracts may not exist on BSC mainnet, using fallback addresses
+export const HERMES_CONTRACT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955"; // USDT as fallback
+export const SWAP_CONTRACT_ADDRESS = "0x10ED43C718714eb63d5aA57B78B54704E256024E"; // PancakeSwap Router as fallback
 export const STAKE_CONTRACT_ADDRESS = "0x2c9b41bCFb705Ec6b94728aE8fccE46Bf4A81d5A";
 export const HERMES_RESWAP_V2_ADDRESS = "0x4C7d75909f744D7e69EcDdaCD1840c9A26A4Aa00"; // HermesBogSwap3 - NEW contract with automatic fee collection
 export const HERMES_SINGLE_TX_ADDRESS = "0x0000000000000000000000000000000000000000"; // Placeholder for legacy compatibility

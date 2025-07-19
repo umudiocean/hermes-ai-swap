@@ -50,7 +50,7 @@ class StatsService {
     }
 
     try {
-      // Get stats from smart contract
+      // Try to get stats from smart contract
       const stats = await this.swapContract.getUserStats(userAddress);
       
       // Get swap history
