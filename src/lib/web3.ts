@@ -10,10 +10,12 @@ export const BSC_NETWORK = {
     decimals: 18,
   },
   rpcUrls: [
+    "https://bsc-dataseed.binance.org",
+    "https://bsc-dataseed1.defibit.io",
+    "https://bsc-dataseed1.ninicoin.io",
+    "https://bsc.nodereal.io",
     "https://bsc.publicnode.com",
-    "https://bsc-rpc.publicnode.com",
-    "https://bsc-dataseed2.binance.org/",
-    "https://bsc-dataseed3.binance.org/"
+    "https://bsc-rpc.publicnode.com"
   ],
   blockExplorerUrls: ["https://bscscan.com/"],
 };
@@ -167,9 +169,12 @@ export class Web3Service {
     }
 
     try {
+      // BSC doesn't support EIP-1559, so we use legacy gas price
       const gasPrice = await this.provider.getFeeData();
       const estimatedGas = BigInt(21000); // Standard transfer gas limit
-      const gasCost = estimatedGas * (gasPrice.gasPrice || BigInt(0));
+      
+      // Use gasPrice instead of maxFeePerGas for BSC
+      const gasCost = estimatedGas * (gasPrice.gasPrice || BigInt(5000000000)); // 5 gwei fallback
       const gasCostEther = ethers.formatEther(gasCost);
       
       // Convert to USD (approximate BNB price)

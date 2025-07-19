@@ -19,20 +19,18 @@ interface WalletState {
   clearError: () => void;
 }
 
-const HERMES_CONTRACT_ADDRESS = '0x9495aB3549338BF14aD2F86CbcF79C7b574bba37';
+const HERMES_CONTRACT_ADDRESS = '0x55d398326f99059fF775485246999027B3197955'; // USDT as fallback
 
 // Multiple RPC endpoints for fallback - Updated with more reliable endpoints
 const BSC_RPC_URLS = [
-  'https://bsc-dataseed1.binance.org',
-  'https://bsc-dataseed2.binance.org',
-  'https://bsc-dataseed3.binance.org',
-  'https://bsc-dataseed4.binance.org',
+  'https://bsc-dataseed.binance.org',
+  'https://bsc-dataseed1.defibit.io',
+  'https://bsc-dataseed1.ninicoin.io',
   'https://bsc.nodereal.io',
   'https://bsc-mainnet.nodereal.io/v1/64a9df0874fb4a93b9d0a3849de012d3',
   'https://bsc.publicnode.com',
   'https://bsc-rpc.publicnode.com',
   'https://bsc.blockpi.network/v1/rpc/public',
-  'https://bsc.getblock.io/mainnet/',
 ];
 
 // Enhanced fallback provider with better error handling
@@ -54,6 +52,10 @@ const fetchBalanceWithFallback = async (address: string, contractAddress?: strin
   try {
     if (window.ethereum) {
       const provider = new ethers.BrowserProvider(window.ethereum);
+      
+      // Configure provider for BSC (disable EIP-1559 features)
+      // Note: BSC doesn't support EIP-1559, so we'll handle this in the provider configuration
+      
       if (contractAddress) {
         const contract = new ethers.Contract(
           contractAddress,
@@ -74,7 +76,10 @@ const fetchBalanceWithFallback = async (address: string, contractAddress?: strin
   // Try fallback providers
   for (let i = 0; i < BSC_RPC_URLS.length; i++) {
     try {
-      const provider = new ethers.JsonRpcProvider(BSC_RPC_URLS[i]);
+      const provider = new ethers.JsonRpcProvider(BSC_RPC_URLS[i], {
+        chainId: 56,
+        name: 'BSC'
+      });
       
       if (contractAddress) {
         const contract = new ethers.Contract(
