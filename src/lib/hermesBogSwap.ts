@@ -47,10 +47,10 @@ export class HermesBogSwapService {
       return {
         hermesBalance: ethers.formatEther(contractInfo[0]),
         bnbBalance: ethers.formatEther(contractInfo[1]),
-        swapCount: contractInfo[2].toString(),
+        swapCount: Number(contractInfo[2]).toString(),
         rewardsDistributed: ethers.formatEther(contractInfo[3]),
         feesCollected: ethers.formatEther(contractInfo[4]),
-        canReward: contractInfo[5]
+        canReward: Boolean(contractInfo[5])
       };
     } catch (error) {
       console.error("Error getting contract status:", error);
@@ -193,7 +193,7 @@ export class HermesBogSwapService {
 
   // Check if contract is deployed and working
   isContractDeployed(): boolean {
-    return this.contract !== null && HERMES_RESWAP_V2_ADDRESS !== "0x0000000000000000000000000000000000000000";
+    return this.contract !== null && HERMES_RESWAP_V2_ADDRESS !== "0x0000000000000000000000000000000000000000" as string;
   }
 
   // Get claimable rewards (for compatibility)

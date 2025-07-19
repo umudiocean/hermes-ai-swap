@@ -9,12 +9,18 @@ class HermesSwapV3Service {
     this.signer = signer;
   }
 
+  isContractDeployed(): boolean {
+    // Check if provider is available
+    return this.provider !== null;
+  }
+
   async getContractInfo(): Promise<any> {
     // Mock implementation for now
     return {
+      hermesBalance: "500000",
       canReward: true,
-      isActive: true,
-      version: '3.0'
+      totalSwaps: 1250,
+      rewardsDistributed: "250000"
     };
   }
 }

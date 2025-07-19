@@ -24,10 +24,10 @@ export default function SystemHealth({ isVisible, onClose }: SystemHealthProps) 
         rpcDetails: rpcStats,
         timestamp: new Date().toLocaleString()
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Health check failed:', error);
       setHealthData({
-        error: error.message,
+        error: error.message || 'Unknown error',
         timestamp: new Date().toLocaleString()
       });
     } finally {

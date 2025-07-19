@@ -1013,7 +1013,6 @@ export default function SwapInterface() {
             className="w-full bg-[#00b0c7] hover:bg-[#0090a3] font-bold py-2.5 rounded-lg transition-all duration-300 hover:scale-[1.02] shadow-lg text-base disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 force-white-text mobile-button touch-target"
             style={{ 
               color: '#ffffff !important',
-              '--tw-text-opacity': '1',
               fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
               fontWeight: '600',
               letterSpacing: '0.5px'

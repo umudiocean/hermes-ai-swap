@@ -102,6 +102,8 @@ export const insertReferralRewardSchema = createInsertSchema(referralRewards).pi
   referredUserId: true,
   swapTransactionId: true,
   rewardAmount: true,
+  claimed: true,
+  claimedAt: true,
 });
 
 export const insertReferralStatsSchema = createInsertSchema(referralStats).pick({
