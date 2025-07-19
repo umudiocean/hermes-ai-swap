@@ -1,155 +1,53 @@
 import { create } from 'zustand';
-import { ethers } from 'ethers';
-import { Web3Service } from '../lib/web3';
+import { walletService } from '../lib/walletService';
+import { contractService } from '../lib/contractService';
 
 interface WalletState {
   isConnected: boolean;
   address: string | null;
   bnbBalance: string;
   hermesBalance: string;
-  provider: any;
-  signer: any;
-  web3Service: Web3Service | null;
   isLoading: boolean;
   error: string | null;
+  userStats: {
+    swapCount: number;
+    claimableRewards: string;
+    canClaim: boolean;
+  } | null;
   
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
   updateBalances: () => Promise<void>;
+  getUserStats: () => Promise<void>;
   clearError: () => void;
 }
-
-const HERMES_CONTRACT_ADDRESS = '0x55d398326f99059fF775485246999027B3197955'; // USDT as fallback
-
-// Multiple RPC endpoints for fallback - Updated with more reliable endpoints
-const BSC_RPC_URLS = [
-  'https://bsc-dataseed.binance.org',
-  'https://bsc-dataseed1.defibit.io',
-  'https://bsc-dataseed1.ninicoin.io',
-  'https://bsc.nodereal.io',
-  'https://bsc-mainnet.nodereal.io/v1/64a9df0874fb4a93b9d0a3849de012d3',
-  'https://bsc.publicnode.com',
-  'https://bsc-rpc.publicnode.com',
-  'https://bsc.blockpi.network/v1/rpc/public',
-];
-
-// Enhanced fallback provider with better error handling
-const createFallbackProvider = () => {
-  const providers = BSC_RPC_URLS.map(url => {
-    const provider = new ethers.JsonRpcProvider(url);
-    return provider;
-  });
-  
-  // Use priority-based fallback
-  return new ethers.FallbackProvider(providers, 1);
-};
-
-// Enhanced balance fetching with multiple fallbacks
-const fetchBalanceWithFallback = async (address: string, contractAddress?: string) => {
-  const errors = [];
-  
-  // Try MetaMask first
-  try {
-    if (window.ethereum) {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      
-      // Configure provider for BSC (disable EIP-1559 features)
-      // Note: BSC doesn't support EIP-1559, so we'll handle this in the provider configuration
-      
-      if (contractAddress) {
-        const contract = new ethers.Contract(
-          contractAddress,
-          ['function balanceOf(address) view returns (uint256)'],
-          provider
-        );
-        const balance = await contract.balanceOf(address);
-        return ethers.formatEther(balance);
-      } else {
-        const balance = await provider.getBalance(address);
-        return ethers.formatEther(balance);
-      }
-    }
-  } catch (error: any) {
-    errors.push(`MetaMask: ${error.message}`);
-  }
-  
-  // Try fallback providers
-  for (let i = 0; i < BSC_RPC_URLS.length; i++) {
-    try {
-      const provider = new ethers.JsonRpcProvider(BSC_RPC_URLS[i], {
-        chainId: 56,
-        name: 'BSC'
-      });
-      
-      if (contractAddress) {
-        const contract = new ethers.Contract(
-          contractAddress,
-          ['function balanceOf(address) view returns (uint256)'],
-          provider
-        );
-        const balance = await contract.balanceOf(address);
-        return ethers.formatEther(balance);
-      } else {
-        const balance = await provider.getBalance(address);
-        return ethers.formatEther(balance);
-      }
-    } catch (error: any) {
-      errors.push(`RPC ${i + 1}: ${error.message}`);
-    }
-  }
-  
-  // If all failed, return 0
-  console.warn('⚠️ All RPC endpoints failed:', errors);
-  return "0.00";
-};
 
 export const useWalletStore = create<WalletState>((set, get) => ({
   isConnected: false,
   address: null,
   bnbBalance: '0.00',
   hermesBalance: '0.00',
-  provider: null,
-  signer: null,
-  web3Service: null,
   isLoading: false,
   error: null,
+  userStats: null,
 
   connectWallet: async () => {
     console.log('🔧 Starting wallet connection...');
     try {
       set({ isLoading: true, error: null });
       
-      console.log('🔧 Checking MetaMask...');
-      if (typeof window.ethereum === 'undefined') {
-        console.error('❌ MetaMask not installed');
-        throw new Error('MetaMask not installed');
-      }
-      console.log('✅ MetaMask found');
-      
-      console.log('🔧 Requesting accounts...');
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      await provider.send('eth_requestAccounts', []);
-      console.log('✅ Accounts approved');
-      
-      const signer = await provider.getSigner();
-      const address = await signer.getAddress();
+      const address = await walletService.connectWallet();
       console.log('✅ Address obtained:', address);
-
-      // Initialize Web3Service
-      const web3Service = new Web3Service();
-      web3Service.setProvider(provider, signer);
 
       set({
         isConnected: true,
         address,
-        provider,
-        signer,
-        web3Service,
         isLoading: false,
       });
 
       console.log('🔧 Updating balances...');
       await get().updateBalances();
+      await get().getUserStats();
       console.log('✅ Wallet connection complete');
       
     } catch (error: any) {
@@ -163,14 +61,13 @@ export const useWalletStore = create<WalletState>((set, get) => ({
 
   disconnectWallet: () => {
     console.log('🔧 Disconnecting wallet...');
+    walletService.disconnect();
     set({
       isConnected: false,
       address: null,
       bnbBalance: '0.00',
       hermesBalance: '0.00',
-      provider: null,
-      signer: null,
-      web3Service: null,
+      userStats: null,
       error: null,
     });
     console.log('✅ Wallet disconnected');
@@ -185,23 +82,44 @@ export const useWalletStore = create<WalletState>((set, get) => ({
         return;
       }
 
-      console.log('🔧 Fetching BNB balance with enhanced fallback...');
-      const bnbFormatted = await fetchBalanceWithFallback(address);
-      console.log('✅ BNB balance:', bnbFormatted);
+      console.log('🔧 Fetching BNB balance...');
+      const bnbBalance = await walletService.getTokenBalance("BNB", address);
+      console.log('✅ BNB balance:', bnbBalance);
 
-      console.log('🔧 Fetching HERMES balance with enhanced fallback...');
-      const hermesFormatted = await fetchBalanceWithFallback(address, HERMES_CONTRACT_ADDRESS);
-      console.log('✅ HERMES balance:', hermesFormatted);
+      console.log('🔧 Fetching HERMES balance...');
+      const hermesBalance = await walletService.getTokenBalance("0x9495aB3549338BF14aD2F86CbcF79C7b574bba37", address);
+      console.log('✅ HERMES balance:', hermesBalance);
 
       set({
-        bnbBalance: parseFloat(bnbFormatted).toFixed(4),
-        hermesBalance: parseFloat(hermesFormatted).toFixed(2),
+        bnbBalance: parseFloat(bnbBalance).toFixed(4),
+        hermesBalance: parseFloat(hermesBalance).toFixed(2),
       });
       
       console.log('✅ Balance update complete');
     } catch (error: any) {
       console.error('❌ Balance update error:', error);
       set({ error: error.message });
+    }
+  },
+
+  getUserStats: async () => {
+    console.log('🔧 Getting user stats...');
+    try {
+      const { address } = get();
+      if (!address) {
+        console.log('❌ No address available');
+        return;
+      }
+
+      const stats = await contractService.getUserStats(address);
+      console.log('✅ User stats loaded:', stats);
+
+      set({ userStats: stats });
+    } catch (error: any) {
+      console.error('❌ User stats error:', error);
+      set({ 
+        userStats: { swapCount: 0, claimableRewards: "0", canClaim: false }
+      });
     }
   },
 

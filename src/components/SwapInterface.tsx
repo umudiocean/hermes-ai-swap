@@ -15,11 +15,8 @@ import { Skeleton } from "../components/ui/skeleton";
 import TokenBalance from "../components/TokenBalance";
 import { cacheService } from "../lib/cacheService";
 import SystemHealth from "../components/SystemHealth";
-import { web3Service } from "../lib/web3";
-import { pancakeSwapService, SWAP_FEE_BNB, PANCAKESWAP_ROUTER_ADDRESS, WBNB_ADDRESS } from "../lib/pancakeswap";
-import { HERMES_RESWAP_V2_ADDRESS } from "../lib/constants";
-import { hermesReswapV2Service } from "../lib/hermesReswapV2";
-import hermesSwapV4Service from "../services/hermesSwapV4Service";
+import { walletService } from "../lib/walletService";
+import { contractService } from "../lib/contractService";
 import { priceService } from "../lib/priceService";
 import { ethers } from "ethers";
 import { ArrowUpDown } from "lucide-react";
@@ -54,8 +51,7 @@ export default function SwapInterface() {
     updateBalances,
     bnbBalance,
     hermesBalance,
-    isLoading,
-    web3Service
+    isLoading
   } = useWalletStore();
   const { recordSwap } = useRewardsStore();
   const { fromToken, toToken, setFromToken, setToToken, swapTokens: swapTokenSelection } = useTokenStore();
@@ -121,12 +117,12 @@ export default function SwapInterface() {
       const fromPrice = await priceService.getTokenPrice(fromToken.symbol);
       const toPrice = await priceService.getTokenPrice(toToken.symbol);
       
-      setFromTokenUsdPrice(fromPrice.usd);
-      setToTokenUsdPrice(toPrice.usd);
+      setFromTokenUsdPrice(fromPrice);
+      setToTokenUsdPrice(toPrice);
       
       // Cache the prices
-      cacheService.set(fromPriceCacheKey, fromPrice.usd, 'TOKEN_PRICE');
-      cacheService.set(toPriceCacheKey, toPrice.usd, 'TOKEN_PRICE');
+      cacheService.set(fromPriceCacheKey, fromPrice, 'TOKEN_PRICE');
+      cacheService.set(toPriceCacheKey, toPrice, 'TOKEN_PRICE');
       
       // Silent price update for performance optimization
     } catch (error) {
@@ -168,35 +164,29 @@ export default function SwapInterface() {
       setIsCalculatingPrice(true);
       setIsCalculating(true);
       try {
-        // Initialize PancakeSwap service if connected
-        if (web3Service?.provider && web3Service?.signer && address) {
-          const provider = web3Service.provider;
-          const signer = web3Service.signer;
-          
-          await pancakeSwapService.initialize(provider, signer);
-          
-          const amountOut = await pancakeSwapService.getAmountOut(
+        // Use new price service for swap quotes
+        if (isConnected && address) {
+          const quote = await priceService.getSwapQuote(
             swapAmount,
-            fromToken.address,
-            toToken.address,
-            fromToken.decimals
+            fromToken,
+            toToken
           );
           
-          const formattedAmount = parseFloat(amountOut).toFixed(6);
-          setReceiveAmount(formattedAmount);
+          setReceiveAmount(quote.amountOut);
+          setGasEstimate(quote.gasEstimate);
           
           // Cache the result for future requests
-          cacheService.set(cacheKey, formattedAmount, 'SWAP_QUOTE');
+          cacheService.set(cacheKey, quote.amountOut, 'SWAP_QUOTE');
           setLastPriceUpdate(Date.now());
           
           // Update token prices immediately when tokens change
           await updateTokenPrices(fromToken, toToken);
         } else {
-          console.warn("Web3Service not properly initialized for swap calculation");
+          console.warn("Wallet not connected for swap calculation");
           setReceiveAmount("");
         }
       } catch (error) {
-        console.error("Production price calculation failed:", error);
+        console.error("Price calculation failed:", error);
         setReceiveAmount("");
         toast({
           title: t('notifications.price_calculation_error'),
@@ -412,171 +402,82 @@ export default function SwapInterface() {
     setIsSwapping(true);
 
     try {
-      // Validate receive amount with production-grade system
+      // Validate receive amount
       if (!receiveAmount || isNaN(parseFloat(receiveAmount)) || parseFloat(receiveAmount) <= 0) {
         throw new Error("Price calculation failed - please try again");
       }
 
-      // Initialize PancakeSwap service - Get from wallet store first
-      const { provider: storeProvider, signer: storeSigner } = useWalletStore.getState();
-      
-      let provider = storeProvider || web3Service?.provider;
-      let signer = storeSigner || web3Service?.signer;
-      
-      // If still no signer, create fresh from MetaMask
-      if (!signer && window.ethereum) {
-        try {
-          provider = new ethers.BrowserProvider(window.ethereum);
-          signer = await provider.getSigner();
-          // Created fresh signer from MetaMask for swap
-        } catch (error) {
-          console.error("Failed to create signer:", error);
-          throw new Error("Failed to create MetaMask signer");
-        }
+      // Get signer from wallet service
+      if (!walletService.isConnected()) {
+        throw new Error("Wallet not connected");
       }
+
+      const signer = walletService.getSigner();
       
-      if (!provider || !signer) {
-        throw new Error("Wallet not properly connected");
-      }
+      // Execute swap using new contract service
+      console.log(`🚀 Executing swap: ${swapAmount} ${fromToken.symbol} → ${toToken.symbol}`);
       
-      await pancakeSwapService.initialize(provider, signer);
+      toast({
+        title: "Hermes AI Swap - Executing transaction",
+        description: "Processing your swap...",
+      });
       
-      // Get fresh quote with actual slippage to fix "Pancake: K" error
-      const freshAmountOut = await pancakeSwapService.getAmountOut(
-        swapAmount,
+      // Execute swap with new contract service
+      const txHash = await contractService.executeSwap(
         fromToken.address,
         toToken.address,
-        fromToken.decimals
+        swapAmount,
+        signer
       );
       
-      // Calculate adaptive slippage for different token pairs
-      let adaptiveSlippage = slippageTolerance;
+      console.log("✅ Swap successful:", txHash);
       
-      // For HERMES token swaps, use user-defined slippage (no minimum override)
-      if (fromToken.symbol === "HERMES" || toToken.symbol === "HERMES") {
-        adaptiveSlippage = slippageTolerance; // Use exactly what user sets
-      }
-      // For exotic tokens (not in top pairs), use higher slippage
-      const topTokens = ['BNB', 'CAKE', 'USDT', 'USDC', 'BUSD', 'ETH'];
-      if (!topTokens.includes(fromToken.symbol) && !topTokens.includes(toToken.symbol)) {
-        adaptiveSlippage = Math.max(slippageTolerance, 3.0); // Minimum 3% for exotic pairs
-      }
+      // Record swap for rewards
+      recordSwap({
+        fromToken: fromToken.symbol,
+        toToken: toToken.symbol,
+        amountIn: swapAmount,
+        amountOut: receiveAmount,
+        txHash: txHash,
+        timestamp: Date.now(),
+      });
       
-      // Use very low minimum to prevent INSUFFICIENT_OUTPUT_AMOUNT errors
-      const amountOutMin = "1"; // 1 wei minimum - prevents all slippage failures
+      // Update balances
+      await updateBalances();
       
-      // Debug info for development
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`Swap: ${swapAmount} ${fromToken.symbol} -> ${toToken.symbol}, minimum output: 1 wei`);
-      }
+      // Show success modal
+      setSwapDetails({
+        fromToken: fromToken.symbol,
+        toToken: toToken.symbol,
+        amountIn: swapAmount,
+        amountOut: receiveAmount,
+        txHash: txHash,
+        gasUsed: gasEstimate,
+      });
       
-
+      setShowSuccessModal(true);
       
-      // Execute the real swap transaction using HermesReswapV2
-      let txHash: string;
+      // Clear form
+      setSwapAmount("");
+      setReceiveAmount("");
       
-      // Initialize HermesSwapV4 service  
-      await hermesSwapV4Service.initialize(provider, signer);
+      toast({
+        title: "🎉 Swap Successful!",
+        description: `Swapped ${swapAmount} ${fromToken.symbol} for ${receiveAmount} ${toToken.symbol}`,
+        variant: "default",
+      });
       
-      // V4Enhanced contract - ACTIVE and DEBUGGING
-      if (hermesSwapV4Service.isContractDeployed()) {
-        // TRUE single transaction using HermesSwapV4Enhanced contract
-        // Executing HermesSwapV4Enhanced single transaction...
-        
-        // Get referral code from referral store
-        const { referralCode } = useReferralStore.getState();
-        
-        // Universal Token Approval System for ALL tokens (except BNB)
-        if (fromToken.symbol !== "BNB") {
-          const tokenContract = new ethers.Contract(
-            fromToken.address,
-            [
-              "function approve(address spender, uint256 amount) external returns (bool)",
-              "function allowance(address owner, address spender) external view returns (uint256)"
-            ],
-            signer
-          );
-          
-          const amountInWei = ethers.parseUnits(swapAmount, fromToken.decimals);
-          const contractAddress = "0x4140096349072a4366Fee22FaA7FB295E474eAf8"; // HermesSwapV4Enhanced
-          
-          // Check current allowance
-          try {
-            const currentAllowance = await tokenContract.allowance(address, contractAddress);
-            
-            // Use MAX approval system for INFINITE single transactions
-            if (currentAllowance < ethers.MaxUint256 / BigInt(2)) { // If not already max approved
-              console.log(`Setting INFINITE approval for ${fromToken.symbol} - ALL future swaps will be single transaction...`);
-              
-              toast({
-                title: "⚡ Hermes AI scanned 21 DEXs and found the lowest fee",
-                variant: "cyan" as any,
-              });
-              
-              // INFINITE MAX approval - never need approval again
-              const infiniteApproval = ethers.MaxUint256;
-              const approveTx = await tokenContract.approve(contractAddress, infiniteApproval);
-              await approveTx.wait();
-              
-              toast({
-                title: "⚡ Hermes AI scanned 21 DEXs and found the lowest fee",
-                variant: "cyan" as any,
-                duration: 5000,
-              });
-              
-              console.log(`🚀 INFINITE Approval set for ${fromToken.symbol} - NO MORE APPROVALS NEEDED EVER!`);
-            } else {
-              console.log(`🚀 ${fromToken.symbol} already has INFINITE allowance - single transaction guaranteed!`);
-              
-              toast({
-                title: "⚡ Hermes AI scanned 21 DEXs and found the lowest fee",
-                variant: "cyan" as any,
-                description: `${fromToken.symbol} already approved - swap executing in single transaction!`,
-                duration: 2000,
-              });
-            }
-          } catch (error) {
-            console.error("Allowance check failed, setting INFINITE approval:", error);
-            
-            toast({
-              title: "⚡ Hermes AI scanned 21 DEXs and found the lowest fee",
-              variant: "cyan" as any,
-            });
-            
-            // Even if allowance check fails, use MAX approval for future efficiency
-            const infiniteApproval = ethers.MaxUint256;
-            const approveTx = await tokenContract.approve(contractAddress, infiniteApproval);
-            await approveTx.wait();
-            
-            toast({
-              title: "⚡ Hermes AI scanned 21 DEXs and found the lowest fee",
-              variant: "cyan" as any,
-            });
-            
-            console.log(`🚀 INFINITE Approval completed for ${fromToken.symbol} - Future swaps guaranteed single transaction`);
-          }
-        }
-        
-        // Execute GUARANTEED single-transaction swap
-        console.log(`🚀 Executing SINGLE TRANSACTION swap: ${fromToken.symbol} → ${toToken.symbol}`);
-        
-        toast({
-          title: "Hermes AI scanned 21 DEXs and found the lowest fee",
-        });
-        
-        // V4 Enhanced contract uses referral codes (not wallet addresses)
-        let contractReferralCode = 0;
-        
-        // Check if we have a V3/V4 referral code from URL or store
-        if (v3ReferralCode) {
-          contractReferralCode = parseInt(v3ReferralCode) || 0;
-          console.log(`🎯 Using V4 referral code from store: ${contractReferralCode}`);
-        } else if (referralCode && referralCode !== address) {
-          // Legacy: Try to convert referral code to number for V4
-          const numericCode = parseInt(referralCode);
-          if (!isNaN(numericCode) && numericCode > 0) {
-            contractReferralCode = numericCode;
-            // Using legacy referral code as numeric
+    } catch (error: any) {
+      console.error("Swap failed:", error);
+      
+      toast({
+        title: "❌ Swap Failed",
+        description: error.message || "Transaction failed. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSwapping(false);
+    }
           } else {
             // Legacy referral code is not numeric, using 0
             contractReferralCode = 0;
