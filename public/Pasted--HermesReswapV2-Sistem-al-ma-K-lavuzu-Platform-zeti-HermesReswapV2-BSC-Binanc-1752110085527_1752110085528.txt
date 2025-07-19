@@ -1,0 +1,305 @@
+# 🚀 HermesReswapV2 Sistem Çalışma Kılavuzu
+
+## 📋 Platform Özeti
+**HermesReswapV2**, BSC (Binance Smart Chain) üzerinde çalışan gelişmiş bir token swap platformudur. Her swap işleminde kullanıcılara HERMES token ödülü veren ve referans sistemi ile ek kazanç imkanı sunan bir DeFi protokolüdür.
+
+---
+
+## 🏗️ Temel Mimari
+
+### Contract Adresi
+```
+0x4C7d75909f744D7e69EcDdaCD1840c9A26A4Aa00
+```
+
+### Ana Bileşenler
+- **PancakeSwap Router:** Token swapları için
+- **HERMES Token:** Ödül sistemi
+- **Referral System:** Gelir paylaşımı
+- **Fee Collection:** Platform geliri
+
+---
+
+## 💰 Ekonomik Model
+
+### Platform Ücretleri
+- **Swap Fee:** 0.0005 BNB (her işlemde)
+- **Destination:** `0xd88026A648C95780e3056ed98eD60E5105cc4863`
+- **Transfer:** Otomatik (swap sırasında)
+
+### Ödül Sistemi
+
+#### 🎯 Referans OLMADAN Swap:
+```
+Kullanıcı → 100,000 HERMES (anında)
+```
+
+#### 🤝 Referans İLE Swap:
+```
+Swap Yapan → 90,000 HERMES
+Referans Sahibi → 10,000 HERMES
+```
+
+---
+
+## 🔄 Swap Türleri
+
+### 1. BNB → Token
+```solidity
+swap(address(0), tokenAddress, 0, referralCode)
+```
+- **Input:** BNB (msg.value - 0.0005)
+- **Output:** Herhangi bir token
+- **Fee:** 0.0005 BNB + PancakeSwap fees
+
+### 2. Token → BNB
+```solidity
+swap(tokenAddress, address(0), amount, referralCode)
+```
+- **Input:** Token miktarı
+- **Output:** BNB
+- **Fee:** 0.0005 BNB + PancakeSwap fees
+
+### 3. Token → Token
+```solidity
+swap(tokenA, tokenB, amount, referralCode)
+```
+- **Input:** TokenA miktarı
+- **Output:** TokenB
+- **Route:** TokenA → WBNB → TokenB
+- **Fee:** 0.0005 BNB + PancakeSwap fees
+
+---
+
+## 🎫 Referans Sistemi Detayları
+
+### Referans Kodu Oluşturma
+```solidity
+generateReferralCode() → uint256
+```
+- Her kullanıcı **1 kez** kod oluşturabilir
+- Kodlar **1000**'den başlar (1000, 1001, 1002...)
+- Mapping: `codeToReferrer[kod] = wallet_adresi`
+
+### Referans Kullanımı
+```solidity
+swap(tokenIn, tokenOut, amount, referralCode)
+```
+
+#### Validasyon Kuralları:
+1. `referralCode > 0` olmalı
+2. Kod **mevcut** olmalı (`codeToReferrer[kod] != address(0)`)
+3. Kod sahibi **swap yapan kişi değil** olmalı
+
+### Ödül Dağıtımı Logic:
+```solidity
+if (referralCode geçerli) {
+    user.transfer(90,000 HERMES)
+    referrer.transfer(10,000 HERMES)
+} else {
+    user.transfer(100,000 HERMES)
+}
+```
+
+---
+
+## 🛠️ Fonksiyon Listesi
+
+### Core Functions
+
+#### `swap(tokenIn, tokenOut, amountIn, referralCode)`
+- Ana swap fonksiyonu
+- Fee transfer + swap + ödül dağıtımı
+- **Payable:** BNB swap'leri için
+
+#### `generateReferralCode()`
+- Yeni referans kodu oluştur
+- Return: uint256 (kod numarası)
+
+### Convenience Functions
+
+#### `swapBNBToHERMES(referralCode)`
+- BNB → HERMES direkt swap
+- **Payable function**
+
+#### `swapHERMESToBNB(amount, referralCode)`
+- HERMES → BNB direkt swap
+- **Payable function**
+
+### View Functions
+
+#### `estimateSwap(tokenIn, tokenOut, amountIn)`
+- Swap öncesi fiyat tahmini
+- **Gas optimized**
+
+#### `getReferralCode(address user)`
+- Kullanıcının referans kodunu getir
+
+#### `getReferralStats(address user)`
+- Referans istatistikleri
+- Return: `(code, earnings, totalRefs, hasCode)`
+
+#### `getContractInfo()`
+- Platform genel bilgileri
+- Return: `(hermesBalance, bnbBalance, swapCount, rewardsDistributed, feesCollected, referralRewardsTotal, canReward)`
+
+---
+
+## 📊 İstatistik Tracking
+
+### Global Stats
+- `totalSwaps` - Toplam swap sayısı
+- `totalRewardsDistributed` - Dağıtılan toplam HERMES
+- `totalFeesCollected` - Toplanan platform ücretleri
+- `totalReferralRewards` - Referans ödülleri toplamı
+
+### User Stats
+- `referralEarnings[user]` - Kullanıcının referans kazancı
+- `totalReferrals[user]` - Kullanıcının toplam referansları
+
+---
+
+## 🔐 Güvenlik Özellikleri
+
+### Access Control
+- **Owner-only functions:** Emergency withdraw, token withdraw
+- **Public functions:** Swap, referral generation
+
+### Safety Checks
+- Fee transfer kontrolü (swap öncesi)
+- Token balance validation
+- Referral code validation
+- Zero address protection
+
+### Emergency Functions
+```solidity
+emergencyWithdrawBNB() // Owner only
+withdrawToken(token, amount) // Owner only
+```
+
+---
+
+## 🎯 Kullanım Senaryoları
+
+### Senaryo 1: İlk Kullanıcı (Referans Yok)
+```
+1. User: swap(BUSD, BNB, 100, 0)
+2. Platform: Fee collect (0.0005 BNB)
+3. PancakeSwap: BUSD → BNB swap
+4. Platform: 100,000 HERMES → User
+5. Result: User gets BNB + 100,000 HERMES
+```
+
+### Senaryo 2: Referans ile Swap
+```
+1. UserA: generateReferralCode() → 1000
+2. UserB: swap(BNB, HERMES, 0, 1000)
+3. Platform: Fee collect (0.0005 BNB)
+4. PancakeSwap: BNB → HERMES swap
+5. Platform: 90,000 HERMES → UserB
+6. Platform: 10,000 HERMES → UserA
+7. Result: Both users get HERMES rewards
+```
+
+### Senaryo 3: Çoklu Token Swap
+```
+1. User: swap(BUSD, USDT, 1000, 1001)
+2. Path: BUSD → WBNB → USDT
+3. Referrer gets: 10,000 HERMES
+4. User gets: USDT + 90,000 HERMES
+```
+
+---
+
+## 📈 Business Logic Flow
+
+### 1. Fee Processing
+```
+msg.value >= 0.0005 BNB ✓
+→ Transfer 0.0005 BNB to FEE_COLLECTOR
+→ Emit FeeCollected & FeeTransferred
+```
+
+### 2. Swap Execution
+```
+Token Type Detection
+→ Route Selection (direct/indirect)
+→ PancakeSwap Interaction
+→ Balance Verification
+```
+
+### 3. Reward Distribution
+```
+HERMES Balance Check
+→ Referral Validation
+→ Reward Transfer (90k+10k or 100k)
+→ Stats Update
+```
+
+---
+
+## ⚙️ Integration Guide
+
+### Web3 Integration
+```javascript
+// Contract instance
+const contract = new web3.eth.Contract(ABI, CONTRACT_ADDRESS);
+
+// Generate referral code
+await contract.methods.generateReferralCode().send({from: account});
+
+// Perform swap with referral
+await contract.methods.swap(tokenIn, tokenOut, amount, referralCode).send({
+    from: account,
+    value: web3.utils.toWei('0.0005', 'ether')
+});
+
+// Get user stats
+const stats = await contract.methods.getReferralStats(account).call();
+```
+
+### Frontend Requirements
+1. **Wallet Connection** (MetaMask, WalletConnect)
+2. **Token Selection** UI
+3. **Referral Code** input/display
+4. **Fee Display** (0.0005 BNB + slippage)
+5. **Reward Tracking** dashboard
+
+---
+
+## 🚨 Önemli Notlar
+
+### HERMES Token Yönetimi
+- Contract'a yeterli HERMES token yüklenmeli
+- `depositRewards(amount)` fonksiyonu ile yükleme
+- Ödül verebilmek için `balance >= 100,000 HERMES` gerekli
+
+### Fee Handling
+- Fee transfer **swap öncesi** yapılır
+- Transfer başarısız olursa tüm işlem revert olur
+- Fee miktarı **sabit**: 0.0005 BNB
+
+### Referral Restrictions
+- Kullanıcı kendi referans kodunu kullanamaz
+- Referral kodu **bir kez** oluşturulabilir
+- Geçersiz kod durumunda normal ödül (100k) verilir
+
+---
+
+## 📞 Contract Interaction Examples
+
+### Read Functions (No Gas)
+```solidity
+getContractInfo() // Platform durumu
+getReferralCode(user) // User'ın kodu
+estimateSwap(tokenA, tokenB, amount) // Fiyat tahmini
+```
+
+### Write Functions (Gas Required)
+```solidity
+generateReferralCode() // Kod oluştur
+swap(tokenIn, tokenOut, amount, refCode) // Ana işlem
+depositRewards(amount) // HERMES yükle (owner)
+```
+
+Bu sistem sayesinde kullanıcılar hem token swap yapabilir, hem HERMES ödülü kazanabilir, hem de referans sistemi ile pasif gelir elde edebilir. Platform sürdürülebilir bir ekonomik model ile çalışır ve tüm işlemler blockchain üzerinde şeffaf şekilde gerçekleşir.

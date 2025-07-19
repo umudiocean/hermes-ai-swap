@@ -1,0 +1,40 @@
+# Cursor AI Rules for Hermes AI Swap Project
+
+## Project Structure
+- This is a React + TypeScript + Vite project
+- Main entry point: src/main.tsx
+- App component: src/App.tsx
+- Pages are in src/pages/
+- Components are in src/components/
+- Utilities are in src/lib/
+- Stores are in src/stores/
+
+## File Exclusions
+- Do not try to open directories as files
+- Ignore node_modules, dist, .git folders
+- Focus on source code files only
+
+## Coding Standards
+- Use TypeScript for all new files
+- Follow existing import patterns
+- Use relative imports for local files
+- Maintain existing component structure
+- Keep existing styling (Tailwind CSS)
+
+## Smart Contract Integration
+- Use provided contract addresses in src/lib/constants.ts
+- Follow existing Web3 patterns in src/lib/web3.ts
+- Maintain BSC network compatibility
+
+## Error Prevention
+- Always check file existence before editing
+- Use proper TypeScript types
+- Handle async operations with try-catch
+- Validate user inputs
+
+## Project-Specific Notes
+- This is a DeFi swap application
+- Supports BNB to HERMES token swaps
+- Includes staking and rewards system
+- Has referral program functionality
+- Uses Web3Modal for wallet connections 

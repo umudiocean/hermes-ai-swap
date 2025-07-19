@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IERC20 {
+    function transfer(address to, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+}
+
+contract HermesSwap {
+    address public owner;
+    address public feeWallet = 0xd88026A648C95780e3056ed98eD60E5105cc4863;
+    address public hermesToken = 0x9495ab3549338bf14ad2f86cbcf79c7b574bba37;
+    uint256 public rewardAmount = 100000 * 10**18;
+    uint256 public swapFee = 0.0005 ether;
+
+    mapping(address => uint256) public rewards;
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    receive() external payable {}
+
+    function swapAndReward(address tokenOut, address dexRouter) external payable {
+        require(msg.value > swapFee, "Insufficient ETH for fee and swap");
+
+        // Fee Transfer
+        payable(feeWallet).transfer(swapFee);
+
+        // Remaining ETH forwarded to PancakeSwap
+        (bool success, ) = dexRouter.call{value: msg.value - swapFee}("");
+        require(success, "Swap failed");
+
+        // Reward record
+        rewards[msg.sender] += rewardAmount;
+    }
+
+    function claimHermes() external {
+        uint256 amount = rewards[msg.sender];
+        require(amount > 0, "No rewards to claim");
+        rewards[msg.sender] = 0;
+        require(IERC20(hermesToken).transfer(msg.sender, amount), "Transfer failed");
+    }
+
+    function updateFeeWallet(address newWallet) external {
+        require(msg.sender == owner, "Only owner");
+        feeWallet = newWallet;
+    }
+
+    function updateRewardAmount(uint256 newAmount) external {
+        require(msg.sender == owner, "Only owner");
+        rewardAmount = newAmount;
+    }
+
+    function updateHermesToken(address newToken) external {
+        require(msg.sender == owner, "Only owner");
+        hermesToken = newToken;
+    }
+}

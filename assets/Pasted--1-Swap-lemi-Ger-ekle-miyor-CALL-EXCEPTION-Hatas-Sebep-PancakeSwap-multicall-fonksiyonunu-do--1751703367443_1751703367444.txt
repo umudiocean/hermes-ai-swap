@@ -1,0 +1,55 @@
+ 1. Swap İşlemi Gerçekleşmiyor – CALL_EXCEPTION Hatası
+Sebep:
+PancakeSwap multicall fonksiyonunu doğrudan sendTransaction ile çağırmaya çalışıyorsun ama bu fonksiyon view türündeyse (ya da sadece call ile çalışması gerekiyorsa) CALL_EXCEPTION hatası verir. Ayrıca:
+
+Route yanlış olabilir (örneğin: WBNB yerine BNB)
+
+Slippage veya deadline hatalı olabilir
+
+Kullanıcıdan alınan BNB doğrudan native ETH (BNB) olarak gönderiliyor olabilir, ama router WBNB bekliyor olabilir
+
+🔧 Çözüm:
+Route dizisini kontrol et → WBNB yerine BNB kullanıyorsan ethers.constants.AddressZero yerine WBNB_ADDRESS kullan.
+
+Tek işlem için kullanılan multicall fonksiyonu yerine klasik swapExactETHForTokens yapısını test et.
+
+Slippage’i UI'da %1 yaptığın halde, router’ın minimum çıktı hesaplaması çok düşükse swap işlemi revert olur.
+
+value parametresi swap fonksiyonunda eksik ya da hatalı olabilir.
+
+⚠️ 2. 100.000 Hermes Ödülü Görünmüyor (Reward Token "0x" Hatası)
+Sebep:
+Reward sisteminde backend veya frontend read-only bir kontrat fonksiyonundan sonuç almak istiyor ama dönen veri "0x" yani boş. Bu şunlardan biri olabilir:
+
+Kullanıcının claim edilecek bir bakiyesi yok.
+
+Reward kontratındaki claimable(address) veya benzeri getter fonksiyon response vermiyor ya da yanlış address gönderiliyor.
+
+🔧 Çözüm:
+getClaimableReward(userAddress) fonksiyonunun var olduğuna ve public olarak tanımlandığına emin ol.
+
+Reward'ı yöneten kontratta mapping düzgün çalışıyor mu?
+
+0x358AA13c... adresli kontrat gerçekten reward sistemini içeriyor mu?
+
+✅ Şu An Ne Yapmalıyız?
+PancakeSwap swap işlemine tek adımda izin verecek en basit yapıyı tekrar test etmeliyiz. Yani:
+
+ts
+Copy
+Edit
+router.swapExactETHForTokens(
+  amountOutMin,
+  [WBNB_ADDRESS, tokenOut],
+  userAddress,
+  deadline,
+  { value: amountIn }
+)
+→ WBNB_ADDRESS sabit olmalı: 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c
+
+Reward sistemi için backend değil, direkt kontrat fonksiyonunu çağırarak hesaplama yapılmalı. Örnek:
+
+ts
+Copy
+Edit
+const reward = await rewardContract.claimable(userAddress)

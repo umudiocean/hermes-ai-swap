@@ -1,0 +1,159 @@
+I have uploaded a full Hermes AI Swap Web3 frontend ZIP.  
+I want you to rebuild the entire project cleanly from scratch using the ZIP as a base, and apply **all best practices, fixes, and production settings** below:
+
+---
+
+✅ GOAL:
+- Clean, optimized, fully working Web3 frontend
+- Must work 100% on Vercel without any errors
+- Must include Web3Modal v5.1.11 stack
+- Final output: downloadable .zip that works with `npm install` + `npm run build`
+
+---
+
+🔧 WHAT TO DO:
+
+📁 FILE STRUCTURE:
+- `src/` → Full structure (main.tsx, App.tsx, components, pages, hooks, context, etc.)
+- `index.html` at root with proper meta and script
+- `vite.config.ts`, `tsconfig.json`, `tailwind.config.ts`, `vercel.json`
+- `public/` with manifest and logo for PWA
+
+📦 DEPENDENCIES:
+```json
+"dependencies": {
+  "react": "^18.2.0",
+  "react-dom": "^18.2.0",
+  "ethers": "^6.8.0",
+  "@web3modal/ethers": "5.1.11",
+  "@web3modal/core": "5.1.11",
+  "@web3modal/siwe": "5.1.11",
+  "@web3modal/ui": "5.1.11"
+}
+📦 SCRIPTS:
+
+json
+Copy
+Edit
+"scripts": {
+  "dev": "vite",
+  "build": "vite build",
+  "preview": "vite preview",
+  "type-check": "tsc --noEmit --skipLibCheck"
+}
+📄 vite.config.ts
+
+ts
+Copy
+Edit
+import { defineConfig } from "vite"
+import react from "@vitejs/plugin-react"
+import path from "path"
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "src")
+    }
+  },
+  build: {
+    outDir: "dist",
+    sourcemap: false,
+    minify: "esbuild",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          web3: ['ethers', '@web3modal/ethers', '@web3modal/core', '@web3modal/ui']
+        }
+      }
+    }
+  },
+  define: {
+    global: "globalThis"
+  }
+})
+📄 vercel.json
+
+json
+Copy
+Edit
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install --legacy-peer-deps",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-XSS-Protection", "value": "1; mode=block" }
+      ]
+    }
+  ]
+}
+📄 tsconfig.json
+
+json
+Copy
+Edit
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "lib": ["DOM", "DOM.Iterable", "ES2020"],
+    "moduleResolution": "Bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "noEmit": true
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}
+📄 .env.example
+
+ini
+Copy
+Edit
+VITE_WEB3_PROJECT_ID=your_walletconnect_project_id
+VITE_NETWORK_ID=56
+VITE_RPC_URL=https://bsc-dataseed1.binance.org/
+🔍 BACKGROUND INFO FOR DEBUGGING (from Claude AI):
+
+@web3modal/html@5.1.11 does not exist → must be removed
+
+npm install --legacy-peer-deps avoids version conflicts on Vercel
+
+noUnusedLocals/Parameters: false causes hidden build crashes
+
+Production settings: sourcemap=false, minify=esbuild, memory-friendly chunking
+
+Add headers in vercel.json to prevent XSS, iframe injection, etc.
+
+🚀 OUTPUT:
+Give me a clean downloadable .zip or .tar.gz that:
+
+Passes npm install
+
+Passes npm run build
+
+Works on Vercel with NO ERRORS
+
+Fully mobile-compatible and PWA-ready
+
+Use the uploaded ZIP only as a reference. Final output must be rebuilt clean and modern with correct versions, configurations, and structure.

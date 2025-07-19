@@ -1,0 +1,239 @@
+# Vercel Deployment Troubleshooting Guide
+
+## 🔍 Tespit Edilen Potansiyel Sorunlar
+
+### 1. **TypeScript Konfigürasyon Sorunu**
+```json
+// tsconfig.json - Düzeltme gerekli
+{
+  "compilerOptions": {
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    // Bu ayarlar false olmamalı, build hatalarına sebep olabilir
+  }
+}
+```
+
+### 2. **Vite Konfigürasyon Optimizasyonu**
+```typescript
+// vite.config.ts - Güncellenmiş versiyon
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "path";
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "src"),
+    },
+  },
+  build: {
+    outDir: "dist",
+    assetsDir: "assets",
+    sourcemap: false,
+    minify: "esbuild",
+    target: "esnext",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          web3: ['ethers', '@web3modal/ethers', '@web3modal/core', '@web3modal/ui'],
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-toast'],
+          utils: ['clsx', 'tailwind-merge', 'class-variance-authority']
+        }
+      }
+    }
+  },
+  define: {
+    global: 'globalThis',
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'ethers', '@web3modal/ethers'],
+    exclude: ['@web3modal/siwe'] // SIWE şu an kullanılmıyor, exclude edebiliriz
+  }
+});
+```
+
+### 3. **Vercel Konfigürasyon Güncellemesi**
+```json
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install --legacy-peer-deps",
+  "framework": "vite",
+  "functions": {
+    "app/api/**/*.js": {
+      "runtime": "nodejs18.x"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        }
+      ]
+    }
+  ]
+}
+```
+
+## 🛠️ Adım Adım Çözüm
+
+### 1. **Package.json Script Güncellemesi**
+```json
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit --skipLibCheck"
+  }
+}
+```
+
+### 2. **Environment Variables Kontrolü**
+Vercel Dashboard'da şu environment variable'ları ekleyin:
+- `VITE_WEB3_PROJECT_ID`: WalletConnect Project ID
+- `VITE_NETWORK_ID`: 56
+- `VITE_RPC_URL`: https://bsc-dataseed1.binance.org/
+
+### 3. **TypeScript Konfigürasyon Düzeltmesi**
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "build"]
+}
+```
+
+### 4. **Dependency Güncellemesi**
+```bash
+# Node modules'u temizle
+rm -rf node_modules package-lock.json
+
+# Yeniden install
+npm install --legacy-peer-deps
+
+# Build test
+npm run build
+```
+
+## 🚨 Yaygın Vercel Hataları ve Çözümleri
+
+### **Error: "Module not found"**
+```bash
+# Çözüm: Dependencies'leri kontrol edin
+npm install --save-dev @types/node
+```
+
+### **Error: "Build failed"**
+```bash
+# Çözüm: TypeScript strict mode'u geçici olarak kapatın
+"strict": false
+```
+
+### **Error: "Memory limit exceeded"**
+```json
+// vercel.json'a ekleyin
+{
+  "functions": {
+    "app/**/*.js": {
+      "maxDuration": 30
+    }
+  }
+}
+```
+
+### **Error: "Environment variables not found"**
+- Vercel Dashboard → Settings → Environment Variables
+- Local development için `.env` dosyası
+- Production için Vercel UI'dan ekleyin
+
+## 📋 Deployment Checklist
+
+- [ ] `npm run build` lokal olarak çalışıyor
+- [ ] Environment variables Vercel'da tanımlandı
+- [ ] `vercel.json` doğru konfigüre edildi
+- [ ] TypeScript hataları çözüldü
+- [ ] Dependencies güncel ve çakışma yok
+- [ ] Build output size kontrol edildi (< 100MB)
+
+## 🔧 Debug Komutları
+
+```bash
+# Lokal build test
+npm run build
+
+# TypeScript kontrol
+npm run type-check
+
+# Vercel CLI ile debug
+npx vercel --debug
+
+# Build log'ları kontrol
+vercel logs
+```
+
+## 🎯 Önerilen Deployment Süreci
+
+1. **Lokal Test**: `npm run build` çalıştırın
+2. **Git Push**: Değişiklikleri commit edin
+3. **Vercel Sync**: Otomatik deploy olsun
+4. **Environment Check**: Variables kontrol edin
+5. **Domain Test**: Deployed URL'yi test edin
+
+## 📞 Acil Destek
+
+Hala sorun yaşıyorsanız:
+1. Vercel build log'larını paylaşın
+2. Console error'larını kontrol edin
+3. Network tab'ını inceleyin
+4. Browser compatibility'yi test edin

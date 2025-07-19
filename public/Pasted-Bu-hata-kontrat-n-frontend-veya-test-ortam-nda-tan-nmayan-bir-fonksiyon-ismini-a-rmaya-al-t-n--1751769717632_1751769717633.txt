@@ -1,0 +1,64 @@
+Bu hata kontratın frontend veya test ortamında tanınmayan bir fonksiyon ismini çağırmaya çalıştığını gösterir.
+
+Olası Nedenler:
+Deploy ettiğin kontratta swapExactETHForTokensWithHermesReward adında bir fonksiyon yok (ya da yanlış yazılmış).
+
+ABI dosyası frontend'de güncellenmedi. Yani yeni kontratın fonksiyonlarını frontend hala eski kontratın ABI’siyle çağırıyor.
+
+Kontrat adresi doğru ama fonksiyonun selector’ı değişmiş (örneğin swapHermesForBNBWithSupport kullanıyorsan ama frontend hala swapExactETHForTokensWithHermesReward çağırıyorsa).
+
+Fonksiyonu internal/private yazdıysan dışarıdan erişilemez.
+
+✅ Ne Yapman Gerekiyor?
+1. Frontend kodunu aç:
+Aranan ama bulunamayan fonksiyon:
+
+js
+Copy
+Edit
+this.contract.swapExactETHForTokensWithHermesReward()
+Eğer bu fonksiyon yeni kontratta yoksa → frontend’i yeni fonksiyon ismine göre güncelle.
+
+2. Mevcut fonksiyon isimlerini kontratta kontrol et:
+Eğer şu fonksiyon varsa:
+
+solidity
+Copy
+Edit
+function swapHermesForBNBWithSupport(...)
+O zaman frontend kodunu şu şekilde güncelle:
+
+js
+Copy
+Edit
+this.contract.swapHermesForBNBWithSupport(...)
+3. ABI Güncellemesi:
+Frontend'te kontrat ABI dosyası eski ise yeni fonksiyonu tanımaz. Yani:
+
+Remix > compile > ABI export yap.
+
+Yeni ABI dosyasını frontend’e yapıştır.
+
+contract.methods.YENİ_FUNCTION çağrısı yaptığından emin ol.
+
+🛠 Bonus: Çakabo’nun Önerdiği Kontrol Listesi
+Adım	Kontrol	Açıklama
+✅	Fonksiyon adı doğru mu?	swapExactETHForTokensWithHermesReward mı yoksa başka mı?
+✅	Kontrat doğru deploy edildi mi?	BSC explorer’dan kontrol et
+✅	ABI güncel mi?	ABI dosyasını frontend'e yeniden yükle
+✅	Adres doğru mu?	Eski adresle konuşmuyorsun, emin ol
+✅	Selector doğru mu?	Yeni fonksiyon varsa onun selector'ı farklıdır
+
+✨ Örnek:
+Eğer yeni fonksiyonun bu ise:
+
+solidity
+Copy
+Edit
+function swapHermesForBNBWithSupport(uint256, uint256, address, uint256) external payable
+Frontend’te bunu böyle çağıracaksın:
+
+js
+Copy
+Edit
+await contract.methods.swapHermesForBNBWithSupport(...).send({ from: user, value: FEE_AMOUNT })

@@ -1,0 +1,90 @@
+Netlify Uyumlu Eksiksiz Web3 Frontend Oluştur
+markdown
+Copy
+Edit
+Elimde daha önce Replit AI tarafından oluşturulmuş bir Web3 frontend kodu vardı. Ancak Vercel’de deploy edemedim, sürekli dependency ve config hataları verdi. Ben de Netlify üzerinden deploy etmeye karar verdim ve build’i başarıyla tamamladım. Ancak:
+
+⚠️ Deploy sonrası sayfa sadece cüzdan bağlantısı gösterdi, içerik (token seçici, swap ekranı, referans yapısı) görünmedi.
+
+Bu yüzden senden şunu istiyorum:
+
+🎯 Amacım:
+Netlify’da eksiksiz çalışan, full Web3 frontend uygulaması. Kodun tamamını sıfırdan oluşturmanı istiyorum.
+
+🔧 Yapmanı İstediğim Teknik Ayarlar:
+
+1. **React + Vite** ile oluşturulacak.
+2. **Web3Modal v5.1.11** kullanılacak. Lütfen başka sürüm kullanma.
+3. `@web3modal/ethers` ve `ethers` uyumlu olacak (Ethers v6.13.4 gibi)
+4. `tailwindcss-animate` ve diğer tailwind plugin’leri kurulmuş olacak.
+5. `@tanstack/react-query` gibi kullanılan tüm kütüphaneler doğru kurulacak ve `vite.config.ts` içinde rollup.external altında tanımlanacak.
+6. `tsconfig.json` dosyası TypeScript 5.4+ sürümüyle uyumlu olacak.
+7. `vite.config.ts` içinde optimizeDeps ve rollupOptions doğru yapılandırılacak.
+8. `netlify.toml` dosyasını da oluştur:
+```toml
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+package.json içinde tüm dependency sürümleri kararlı ve çalışır olacak. Eksik bağımlılık kalmayacak.
+
+npm install --legacy-peer-deps ile sorunsuz kurulmalı.
+
+npm run build lokal olarak da çalışmalı.
+
+.env desteği olacak: VITE_WEB3_PROJECT_ID, VITE_RPC_URL gibi environment değişkenleri.
+
+📦 Dosya yapısı şu şekilde olacak:
+
+public/
+
+index.html
+
+manifest.json
+
+sw.js
+
+src/
+
+App.tsx
+
+main.tsx
+
+components/
+
+hooks/
+
+styles/
+
+vite.config.ts
+
+package.json
+
+tsconfig.json
+
+tailwind.config.ts
+
+postcss.config.js
+
+netlify.toml
+
+🧠 Uygulama Özelliği:
+
+Cüzdan bağlantısı (Web3Modal 5.1.11)
+
+Swap işlemi (token seçici, hesaplama)
+
+Swap sonrası ödül gösterimi
+
+Referans yapısı: URL’deki ?ref= parametresiyle takip
+
+Responsive tasarım, mobil uyumlu
+
+PWA desteği (service worker + manifest)
+
+🚀 Hedef:
+Bana yukarıdaki yapıya sahip, npm install && npm run build komutları Netlify'da sorunsuz çalışan bir proje ZIP’i oluştur. Dosyaların hepsi eksiksiz olsun (özellikle src/ klasörü).

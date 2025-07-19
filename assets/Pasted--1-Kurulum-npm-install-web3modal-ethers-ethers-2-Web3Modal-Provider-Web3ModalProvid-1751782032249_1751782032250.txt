@@ -1,0 +1,233 @@
+// 1. Kurulum
+// npm install @web3modal/ethers ethers
+
+// 2. Web3Modal Provider - Web3ModalProvider.jsx
+import { createWeb3Modal, defaultConfig } from '@web3modal/ethers/react'
+
+// Web3Modal projenizi oluşturun: https://cloud.walletconnect.com
+const projectId = 'YOUR_PROJECT_ID' // WalletConnect Cloud'dan alın
+
+// BSC Chain config
+const bscChain = {
+  chainId: 56,
+  name: 'BNB Smart Chain',
+  currency: 'BNB',
+  explorerUrl: 'https://bscscan.com',
+  rpcUrl: 'https://bsc-dataseed.binance.org'
+}
+
+// Metadata
+const metadata = {
+  name: 'HermesAI Swap',
+  description: 'HermesAI Multi-Wallet Swap Platform',
+  url: 'https://hermesai.swap', // Sitenizin URL'i
+  icons: ['https://hermesai.swap/logo.png'] // Logo URL'i
+}
+
+// Web3Modal oluştur
+createWeb3Modal({
+  ethersConfig: defaultConfig({ metadata }),
+  chains: [bscChain],
+  projectId,
+  enableAnalytics: true, // Optional
+  themeMode: 'dark',
+  themeVariables: {
+    '--w3m-color-mix': '#1a1a1a',
+    '--w3m-color-mix-strength': 40,
+    '--w3m-accent': '#ff4444',
+    '--w3m-font-size-master': '11px',
+    '--w3m-border-radius-master': '8px',
+    '--w3m-z-index': 999999
+  }
+})
+
+export function Web3ModalProvider({ children }) {
+  return children
+}
+
+// 3. Ana App Component - App.jsx
+import React, { useEffect, useState } from 'react'
+import { useWeb3ModalProvider, useWeb3ModalAccount } from '@web3modal/ethers/react'
+import { BrowserProvider, Contract, formatEther, parseEther } from 'ethers'
+import HermesBalanceCard from './components/HermesBalanceCard'
+
+// Contract ABIs
+const HERMES_SWAP_ABI = [...] // Sizin swap contract ABI'niz
+const HERMES_TOKEN_ABI = [
+  "function balanceOf(address) view returns (uint256)",
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "function allowance(address owner, address spender) view returns (uint256)"
+]
+
+// Addresses
+const HERMES_SWAP_ADDRESS = "0x..." // Deploy ettiğiniz contract adresi
+const HERMES_TOKEN_ADDRESS = "0x9495aB3549338BF14aD2F86CbcF79C7b574bba37"
+
+function App() {
+  const { address, chainId, isConnected } = useWeb3ModalAccount()
+  const { walletProvider } = useWeb3ModalProvider()
+  
+  const [provider, setProvider] = useState(null)
+  const [signer, setSigner] = useState(null)
+  const [swapContract, setSwapContract] = useState(null)
+  const [hermesContract, setHermesContract] = useState(null)
+
+  // Provider setup
+  useEffect(() => {
+    if (walletProvider && isConnected) {
+      const setupProvider = async () => {
+        try {
+          // Ethers v6 provider
+          const ethersProvider = new BrowserProvider(walletProvider)
+          const ethersSigner = await ethersProvider.getSigner()
+          
+          setProvider(ethersProvider)
+          setSigner(ethersSigner)
+          
+          // Contract instances
+          const swap = new Contract(
+            HERMES_SWAP_ADDRESS,
+            HERMES_SWAP_ABI,
+            ethersSigner
+          )
+          const hermes = new Contract(
+            HERMES_TOKEN_ADDRESS,
+            HERMES_TOKEN_ABI,
+            ethersSigner
+          )
+          
+          setSwapContract(swap)
+          setHermesContract(hermes)
+          
+        } catch (error) {
+          console.error("Provider setup error:", error)
+        }
+      }
+      
+      setupProvider()
+    }
+  }, [walletProvider, isConnected])
+
+  // Chain kontrolü
+  useEffect(() => {
+    if (isConnected && chainId !== 56) {
+      switchToBSC()
+    }
+  }, [chainId, isConnected])
+
+  // BSC'ye geçiş
+  const switchToBSC = async () => {
+    if (walletProvider) {
+      try {
+        await walletProvider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x38' }] // 56 in hex
+        })
+      } catch (error) {
+        // Chain yoksa ekle
+        if (error.code === 4902) {
+          await walletProvider.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: '0x38',
+              chainName: 'BNB Smart Chain',
+              nativeCurrency: {
+                name: 'BNB',
+                symbol: 'BNB',
+                decimals: 18
+              },
+              rpcUrls: ['https://bsc-dataseed.binance.org'],
+              blockExplorerUrls: ['https://bscscan.com']
+            }]
+          })
+        }
+      }
+    }
+  }
+
+  // HERMES to BNB Swap
+  const swapHermesToBNB = async (amount) => {
+    if (!swapContract || !hermesContract) return
+    
+    try {
+      // 1. Check allowance
+      const allowance = await hermesContract.allowance(address, HERMES_SWAP_ADDRESS)
+      const amountWei = parseEther(amount.toString())
+      
+      // 2. Approve if needed
+      if (allowance < amountWei) {
+        const approveTx = await hermesContract.approve(
+          HERMES_SWAP_ADDRESS,
+          parseEther("1000000000") // Max approve
+        )
+        await approveTx.wait()
+      }
+      
+      // 3. Execute swap
+      const swapTx = await swapContract.swapHERMESToBNB(
+        amountWei,
+        { value: parseEther("0.0005") } // Platform fee
+      )
+      
+      await swapTx.wait()
+      alert("Swap başarılı!")
+      
+    } catch (error) {
+      console.error("Swap error:", error)
+      alert("Swap hatası: " + error.message)
+    }
+  }
+
+  return (
+    <div className="app">
+      <header>
+        {/* Web3Modal Connect Button */}
+        <w3m-button />
+      </header>
+
+      {isConnected ? (
+        <div className="dashboard">
+          <div className="wallet-info">
+            <p>Bağlı Cüzdan: {address?.slice(0, 6)}...{address?.slice(-4)}</p>
+            <p>Ağ: {chainId === 56 ? 'BSC' : 'Yanlış Ağ'}</p>
+          </div>
+
+          {/* HERMES Balance Component */}
+          <HermesBalanceCard 
+            userAddress={address}
+            provider={provider}
+          />
+
+          {/* Swap Interface */}
+          <div className="swap-interface">
+            <button onClick={() => swapHermesToBNB(100)}>
+              100 HERMES → BNB Swap
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="connect-prompt">
+          <h2>Cüzdanınızı Bağlayın</h2>
+          <p>İşlem yapmak için cüzdanınızı bağlamanız gerekiyor.</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default App
+
+// 4. index.js
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import { Web3ModalProvider } from './providers/Web3ModalProvider'
+import App from './App'
+import './index.css'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <Web3ModalProvider>
+      <App />
+    </Web3ModalProvider>
+  </React.StrictMode>
+)

@@ -1,0 +1,57 @@
+Hermes AI Swap frontend uygulamasına aşağıdaki başlık menüsünü (header navigation bar) eklemek istiyorum. Tema karanlık (dark), kurumsal ve sade olacak.
+
+---
+
+### 🧱 Teknik Gereksinimler:
+- Yazı fontu: `Suno`
+- Tema: Arka plan siyah, yazılar beyaz, vurgular altın sarısı (`#FFD700`)
+- Mobil uyumlu responsive yapı
+- İlk açılış sayfası daima **Swap ekranı olacak**
+
+---
+
+### 🔗 Menü Butonları:
+
+1. **Swap**  
+   - Açılışta bu sayfa yüklenecek  
+   - Token değişimi işlemleri bu bölümde yapılacak  
+   - `/swap` ya da `/` rotasında yer almalı
+
+2. **Referans Sistemi**  
+   - `/referral` rotasında yer alacak  
+   - Kullanıcıya özel referans linki gösterilecek  
+   - Açıklama:  
+     > "Bu referans linkiyle swap yapan cüzdanların oluşturduğu işlem hacmi sayesinde, her swap işleminde **10.000 adet HERMES Coin** kazanırsınız. Maksimum 10 farklı cüzdan referansı yapılabilir."
+
+3. **Hakkında**  
+   - `/about` rotasında yer alacak  
+   - Açıklama:  
+     > "Hermes AI Swap, 21 DEX üzerinden en düşük fee ile swap işlemi sunan yapay zekâ destekli platformdur. Swap sonrası anında 100.000 HERMES Coin ödülü verilir."
+
+4. **Audit Report**  
+   - Harici bağlantı:  
+     `https://github.com/radcipher/radcipher/blob/main/reports/private-audits/pdf/2025-06-30-HermesAi-Audit-Report.pdf`  
+   - Yeni sekmede (target="_blank") açılmalı
+
+5. **Join Now (X)**  
+   - Harici bağlantı:  
+     `https://x.com/hermes_ai_trade`  
+   - Yeni sekmede açılmalı  
+   - İkon: `🐦` ya da `X` simgesi kullanılabilir
+
+6. **Join Now (Telegram)**  
+   - Harici bağlantı:  
+     `https://t.me/hermes_ai_trade`  
+   - Yeni sekmede açılmalı  
+   - İkon: `📢` ya da Telegram logo simgesi
+
+---
+
+### 📌 Ekstra:
+- Header menü her sayfada sabit kalmalı (sticky top)
+- Aktif sayfa vurgulanmalı (alt çizgi ya da renk değişimi)
+- Mobilde hamburger menüye dönüşmeli
+
+---
+
+Bu yapıya göre başlık menüsü hazırlanmalı. Swap sayfası ilk açılışta yüklenecek, diğer sayfalar yönlendirme ile açılacak.

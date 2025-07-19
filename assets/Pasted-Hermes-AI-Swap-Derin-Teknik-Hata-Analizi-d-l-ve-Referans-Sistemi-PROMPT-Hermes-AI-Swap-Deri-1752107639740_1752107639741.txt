@@ -1,0 +1,90 @@
+Hermes AI Swap Derin Teknik Hata Analizi + Ödül ve Referans Sistemi PROMPT
+
+🎯 Hermes AI Swap – Derin Teknik Hata Analizi ve Eksiksiz Çalışır Sistem Teslimat Talebi
+
+🔍 Genel Amaç:
+Hermes AI Swap’ın şu anda wallet bağlantısı çalışıyor fakat swap ve ödül/referral mekanizmaları beklenilen şekilde işlemiyor.
+Replit AI’den beklenti:
+
+➤ Tüm kodu derinlemesine incelemek, wagmi/Next.js veya mock yapı kullanımına son vermek.
+➤ React + Vite + ethers.js + Web3Modal + Zustand + Wouter + React Query stack’e sadık kalarak eksiksiz çalışan sistem sunmak.
+➤ Testnet değil, gerçek mainnet üzerinde %100 çalışan bir production sürüm sunmak.
+
+✅ 1️⃣ Derin Teknik Hata Analizi İstekleri:
+
+Contract integration doğru mu?
+
+msg.value handling doğru mu?
+➤ amountIn + 0.0005 BNB fee doğru gönderiliyor mu?
+
+ChainId doğrulaması doğru mu? (BNB Mainnet = 56)
+
+Smart contract call ve ödül dağıtımı frontend üzerinden gerçekten trigger ediliyor mu? (mock değil gerçek contract çağrısı)
+
+Referral parametresi URL’den doğru alınıyor mu ve contract’a geçiriliyor mu?
+
+✅ 2️⃣ Swap + Ödül + Referans Sistemi Gereksinimleri:
+
+💰 Fee Akışı:
+
+0.0005 BNB her swap’te fee olarak alınır ve:
+➤ Doğrudan 0xd88026A648C95780e3056ed98eD60E5105cc4863 adresine aktarılır.
+➤ Bu akış gerçek transaction üzerinde BSC Mainnet’te takip edilebilir olacak.
+
+🪙 HERMES Token Ödül Sistemi:
+
+Referanssız Swap:
+➤ 100.000 HERMES swap yapan cüzdana transfer edilir.
+
+Referanslı Swap:
+➤ Toplam ödül yine 100.000 HERMES olacak ama:
+
+90.000 HERMES → Swap yapan wallet’a
+
+10.000 HERMES → Referans wallet’a
+
+➡️ Burada referans ödülü swap yapan kullanıcının hakkından düşülecek, toplam ödül daima 100.000 olacak.
+
+🤝 Referans Sistemi Detayı:
+
+Referral URL ?ref=0x... ile çalışacak.
+
+Self-referral engeli olacak (swap yapan adres = referrer olamaz).
+
+Circular referral detection yapılacak (örneğin A → B → A engellenecek).
+
+Referanslı ödül dağıtımı claim değil otomatik olacak, kullanıcı ek işlem yapmayacak.
+
+⚡ Tek Transaction Garantisi:
+
+Fee tahsilatı + ödül dağıtımı + referans ödülü tek bir atomic transaction içinde çalışacak.
+
+Kullanıcı sadece 1 işlem gönderdiğinde:
+➤ Swap gerçekleşir
+➤ 0.0005 BNB fee collector’a gider
+➤ 100.000 HERMES (ya da referans bölüşümü) wallet’lara transfer olur.
+
+✅ 3️⃣ Teknik Gereklilikler:
+
+Hiçbir mock veri kullanılmayacak.
+
+Tüm API çağrıları gerçek ve production environment’ta olacak.
+
+Database schema eksiksiz optimize edilmiş şekilde kurulacak (claim işlemleri olmasa da).
+
+UI tamamen aynı kalacak (dark theme + gold accents).
+
+Referans takibi frontend’den backend’e doğru ve eksiksiz şekilde bağlı olacak.
+
+🎯 4️⃣ Başarı Kriterleri:
+
+https://hermes-ai-swap.replit.app üzerinde wallet bağlayan bir kullanıcı:
+1️⃣ Swap işlemi yapabilecek.
+2️⃣ 0.0005 BNB fee doğru adrese aktarılacak.
+3️⃣ 100.000 HERMES ödül alınacak (referanslı ise 90.000 + 10.000 şeklinde bölünecek).
+4️⃣ Referans URL takibi doğru çalışacak.
+5️⃣ Tüm işlemler atomic şekilde tek transaction ile çalışacak.
+6️⃣ UI tasarımı %100 aynı kalacak (dark mode, gold highlight).
+
+🚫 Mock environment / dummy API / testnet deploy kabul edilmeyecek:
+✅ Gerçek, çalışır, production-ready sistem isteniyor.

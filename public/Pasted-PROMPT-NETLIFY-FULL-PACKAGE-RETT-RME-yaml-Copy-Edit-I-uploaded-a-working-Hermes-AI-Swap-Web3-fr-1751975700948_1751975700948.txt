@@ -1,0 +1,116 @@
+PROMPT: NETLIFY FULL PACKAGE ÜRETTİRME 🔮
+yaml
+Copy
+Edit
+I uploaded a working Hermes AI Swap Web3 frontend.  
+Now I want you to rebuild and deliver a **clean, deploy-ready ZIP file optimized for Netlify**.
+
+---
+
+✅ GOAL:
+- Final zip should be 100% compatible with Netlify
+- Must build without errors (`npm run build`)
+- No missing source files (`src/`, `index.html`, etc.)
+- Final output: clean `.zip` or `.tar.gz` I can directly upload to Netlify
+
+---
+
+🔧 WHAT TO INCLUDE:
+
+📁 REQUIRED STRUCTURE:
+- `index.html` at root
+- `src/` folder with all React + TS files
+- `public/` with logos, icons, manifest
+- `vite.config.ts` with Netlify-compatible `outDir: "dist"`
+- `tsconfig.json`
+- `tailwind.config.ts`
+- `package.json` and `package-lock.json`
+- `netlify.toml` (see below)
+
+---
+
+⚙️ CONFIG FILES TO APPLY:
+
+📦 `vite.config.ts`
+```ts
+import { defineConfig } from "vite"
+import react from "@vitejs/plugin-react"
+import path from "path"
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "src"),
+    }
+  },
+  build: {
+    outDir: "dist",
+    sourcemap: false,
+    minify: "esbuild"
+  },
+  define: {
+    global: "globalThis"
+  }
+})
+📦 netlify.toml
+
+toml
+Copy
+Edit
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+📦 package.json (simplified)
+
+json
+Copy
+Edit
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "ethers": "^6.8.0",
+    "@web3modal/ethers": "5.1.11",
+    "@web3modal/core": "5.1.11",
+    "@web3modal/siwe": "5.1.11",
+    "@web3modal/ui": "5.1.11"
+  }
+}
+📦 .env.example
+
+ini
+Copy
+Edit
+VITE_WEB3_PROJECT_ID=your_walletconnect_id
+VITE_NETWORK_ID=56
+VITE_RPC_URL=https://bsc-dataseed1.binance.org/
+🧪 TEST GOALS BEFORE DELIVERY:
+
+npm install && npm run build works locally
+
+dist/ folder generated with valid index.html
+
+Vite aliases (@/) work properly
+
+No missing files in src/ (App.tsx, main.tsx, etc.)
+
+📦 FINAL OUTPUT:
+
+Give me a final .zip or .tar.gz of the frontend
+
+It must deploy on Netlify without any config edits
+
+All files must be production-ready
+
+Build a clean, complete frontend project based on the uploaded version — but optimize and verify it for Netlify, not Vercel.

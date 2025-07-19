@@ -1,0 +1,605 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.24;
+
+interface IERC20 {
+    function transfer(address to, uint256 amount) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function decimals() external view returns (uint8);
+}
+
+interface IPancakeRouter {
+    function WETH() external pure returns (address);
+    
+    function swapExactETHForTokensSupportingFeeOnTransferTokens(
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external payable;
+    
+    function swapExactTokensForETHSupportingFeeOnTransferTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external;
+    
+    function swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external;
+    
+    function getAmountsOut(uint amountIn, address[] calldata path)
+        external view returns (uint[] memory amounts);
+}
+
+contract HermesSwapV4Enhanced {
+    // BSC Mainnet addresses
+    address private constant PANCAKE_ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+    address private constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+    address private constant HERMES = 0x9495aB3549338BF14aD2F86CbcF79C7b574bba37;
+    address private constant TREASURY = 0xd88026A648C95780e3056ed98eD60E5105cc4863;
+    
+    // Fee structure
+    uint256 public constant SWAP_FEE = 0.0005 ether;          // Platform fee per swap
+    uint256 public constant REFERRAL_CODE_FEE = 0.0006 ether; // Fee to generate referral code
+    
+    // Reward structure
+    uint256 public constant HERMES_BASE_REWARD = 100000 * 10**18;     // 100k HERMES base reward
+    uint256 public constant HERMES_USER_REWARD = 110000 * 10**18;     // 110k HERMES for user (with referral)
+    uint256 public constant HERMES_REFERRAL_REWARD = 10000 * 10**18;  // 10k HERMES for referrer
+    uint256 public constant HERMES_TOTAL_REFERRAL = 120000 * 10**18;  // Total for referral swaps
+    
+    // Security limits
+    uint256 public constant RATE_LIMIT_WINDOW = 1 days;
+    uint256 public constant MAX_SWAPS_PER_DAY = 50;
+    uint256 public constant MIN_SWAP_INTERVAL = 3; // 3 seconds between swaps
+    
+    // Owner and security
+    address public immutable owner;
+    bool private locked; // Reentrancy guard
+    bool public paused = false;
+    bool public emergencyMode = false;
+    
+    // Rate limiting
+    mapping(address => uint256) public lastSwapTime;
+    mapping(address => uint256) public swapCount24h;
+    mapping(address => uint256) public lastDayReset;
+    
+    // Blacklist system
+    mapping(address => bool) public blacklisted;
+    address[] public blacklistedAddresses;
+    
+    // Statistics
+    uint256 public totalSwaps;
+    uint256 public totalRewardsDistributed;
+    uint256 public totalFeesCollected;
+    uint256 public totalReferralFeesCollected;
+    uint256 public totalReferralRewards;
+    
+    // Referral system
+    mapping(address => uint256) public referralCodes;
+    mapping(uint256 => address) public codeToReferrer;
+    mapping(address => uint256) public referralEarnings;
+    mapping(address => uint256) public totalReferrals;
+    uint256 private nextReferralCode = 1000;
+    
+    // Router instance
+    IPancakeRouter private immutable router;
+    
+    // Events
+    event SwapExecuted(
+        address indexed user,
+        address indexed tokenIn,
+        address indexed tokenOut,
+        uint256 amountIn,
+        uint256 amountOut,
+        uint256 userReward,
+        uint256 referralReward,
+        address indexed referrer
+    );
+    event ReferralCodeGenerated(address indexed user, uint256 indexed code, uint256 feeAmount);
+    event RewardPaid(address indexed user, uint256 amount);
+    event ReferralRewardPaid(address indexed referrer, address indexed user, uint256 amount);
+    event FeeCollected(uint256 swapFee, uint256 referralFee);
+    event UserBlacklisted(address indexed user, bool status);
+    event EmergencyModeToggled(bool enabled);
+    event ContractPaused(bool paused);
+    
+    // Custom errors for gas optimization
+    error Unauthorized();
+    error Reentrancy();
+    error ContractPaused();
+    error EmergencyModeActive();
+    error UserBlacklisted(address user);
+    error RateLimited(address user);
+    error InsufficientFee(uint256 required, uint256 provided);
+    error ReferralCodeExists(address user);
+    error InvalidReferralCode(uint256 code);
+    error TransferFailed();
+    error SwapFailed();
+    error InvalidAmount();
+    error SameToken();
+    error InvalidAddress();
+    
+    // Modifiers
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert Unauthorized();
+        _;
+    }
+    
+    modifier nonReentrant() {
+        if (locked) revert Reentrancy();
+        locked = true;
+        _;
+        locked = false;
+    }
+    
+    modifier whenNotPaused() {
+        if (paused) revert ContractPaused();
+        _;
+    }
+    
+    modifier notInEmergency() {
+        if (emergencyMode) revert EmergencyModeActive();
+        _;
+    }
+    
+    modifier notBlacklisted() {
+        if (blacklisted[msg.sender]) revert UserBlacklisted(msg.sender);
+        _;
+    }
+    
+    modifier rateLimited() {
+        _checkRateLimit();
+        _;
+    }
+    
+    constructor() {
+        owner = msg.sender;
+        router = IPancakeRouter(PANCAKE_ROUTER);
+    }
+    
+    receive() external payable {
+        // Only accept BNB from router or owner
+        if (msg.sender != PANCAKE_ROUTER && msg.sender != owner) {
+            revert InvalidAddress();
+        }
+    }
+    
+    // Rate limiting check
+    function _checkRateLimit() private {
+        uint256 currentTime = block.timestamp;
+        
+        // Check minimum interval between swaps
+        if (currentTime - lastSwapTime[msg.sender] < MIN_SWAP_INTERVAL) {
+            revert RateLimited(msg.sender);
+        }
+        
+        // Reset daily counter if needed
+        if (currentTime - lastDayReset[msg.sender] >= RATE_LIMIT_WINDOW) {
+            swapCount24h[msg.sender] = 0;
+            lastDayReset[msg.sender] = currentTime;
+        }
+        
+        // Check daily limit
+        if (swapCount24h[msg.sender] >= MAX_SWAPS_PER_DAY) {
+            revert RateLimited(msg.sender);
+        }
+        
+        // Update counters
+        lastSwapTime[msg.sender] = currentTime;
+        swapCount24h[msg.sender]++;
+    }
+    
+    // Safe BNB transfer
+    function _safeTransferBNB(address to, uint256 amount) private {
+        (bool success,) = payable(to).call{value: amount}("");
+        if (!success) revert TransferFailed();
+    }
+    
+    // Generate referral code with 0.0006 BNB fee
+    function generateReferralCode() 
+        external 
+        payable 
+        nonReentrant 
+        whenNotPaused 
+        notBlacklisted 
+        notInEmergency 
+        returns (uint256) 
+    {
+        if (msg.value < REFERRAL_CODE_FEE) {
+            revert InsufficientFee(REFERRAL_CODE_FEE, msg.value);
+        }
+        
+        if (referralCodes[msg.sender] != 0) {
+            revert ReferralCodeExists(msg.sender);
+        }
+        
+        // Generate unique code
+        uint256 code = nextReferralCode;
+        nextReferralCode++;
+        
+        // Store mappings
+        referralCodes[msg.sender] = code;
+        codeToReferrer[code] = msg.sender;
+        
+        // Transfer fee to treasury
+        _safeTransferBNB(TREASURY, REFERRAL_CODE_FEE);
+        totalReferralFeesCollected += REFERRAL_CODE_FEE;
+        
+        // Return excess BNB if any
+        if (msg.value > REFERRAL_CODE_FEE) {
+            _safeTransferBNB(msg.sender, msg.value - REFERRAL_CODE_FEE);
+        }
+        
+        emit ReferralCodeGenerated(msg.sender, code, REFERRAL_CODE_FEE);
+        
+        return code;
+    }
+    
+    // Main swap function with enhanced security
+    function swap(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 referralCode
+    ) 
+        external 
+        payable 
+        nonReentrant 
+        whenNotPaused 
+        notBlacklisted 
+        rateLimited 
+        notInEmergency
+    {
+        if (msg.value < SWAP_FEE) {
+            revert InsufficientFee(SWAP_FEE, msg.value);
+        }
+        
+        if (tokenIn == tokenOut) revert SameToken();
+        if (amountIn == 0 && (tokenIn != address(0) && tokenIn != WBNB)) revert InvalidAmount();
+        
+        // Transfer swap fee to treasury
+        _safeTransferBNB(TREASURY, SWAP_FEE);
+        totalFeesCollected += SWAP_FEE;
+        
+        uint256 amountOut;
+        
+        // Execute swap based on token types
+        if (tokenIn == address(0) || tokenIn == WBNB) {
+            // BNB to Token
+            uint256 bnbForSwap = msg.value - SWAP_FEE;
+            if (bnbForSwap <= 0) revert InvalidAmount();
+            amountOut = _swapBNBForToken(tokenOut, bnbForSwap);
+        } else if (tokenOut == address(0) || tokenOut == WBNB) {
+            // Token to BNB
+            amountOut = _swapTokenForBNB(tokenIn, amountIn);
+        } else {
+            // Token to Token
+            amountOut = _swapTokenForToken(tokenIn, tokenOut, amountIn);
+        }
+        
+        totalSwaps++;
+        
+        // Handle rewards
+        address referrer = address(0);
+        uint256 userReward = 0;
+        uint256 referralReward = 0;
+        
+        // Check if valid referral code
+        if (referralCode > 0 && 
+            codeToReferrer[referralCode] != address(0) && 
+            codeToReferrer[referralCode] != msg.sender &&
+            !blacklisted[codeToReferrer[referralCode]]) {
+            
+            referrer = codeToReferrer[referralCode];
+            (userReward, referralReward) = _distributeReferralRewards(referrer);
+        } else {
+            userReward = _distributeBaseReward();
+        }
+        
+        emit SwapExecuted(
+            msg.sender, 
+            tokenIn, 
+            tokenOut, 
+            amountIn, 
+            amountOut, 
+            userReward, 
+            referralReward, 
+            referrer
+        );
+    }
+    
+    // Distribute base reward (no referral)
+    function _distributeBaseReward() private returns (uint256) {
+        uint256 hermesBalance = IERC20(HERMES).balanceOf(address(this));
+        
+        if (hermesBalance >= HERMES_BASE_REWARD) {
+            if (IERC20(HERMES).transfer(msg.sender, HERMES_BASE_REWARD)) {
+                totalRewardsDistributed += HERMES_BASE_REWARD;
+                emit RewardPaid(msg.sender, HERMES_BASE_REWARD);
+                return HERMES_BASE_REWARD;
+            }
+        }
+        
+        return 0;
+    }
+    
+    // Distribute referral rewards (110k to user + 10k to referrer)
+    function _distributeReferralRewards(address referrer) private returns (uint256 userReward, uint256 referralReward) {
+        uint256 hermesBalance = IERC20(HERMES).balanceOf(address(this));
+        
+        if (hermesBalance >= HERMES_TOTAL_REFERRAL) {
+            // Send 110k HERMES to user
+            if (IERC20(HERMES).transfer(msg.sender, HERMES_USER_REWARD)) {
+                userReward = HERMES_USER_REWARD;
+                
+                // Send 10k HERMES to referrer
+                if (IERC20(HERMES).transfer(referrer, HERMES_REFERRAL_REWARD)) {
+                    referralReward = HERMES_REFERRAL_REWARD;
+                    referralEarnings[referrer] += HERMES_REFERRAL_REWARD;
+                    totalReferrals[referrer]++;
+                    totalReferralRewards += HERMES_REFERRAL_REWARD;
+                    
+                    emit ReferralRewardPaid(referrer, msg.sender, HERMES_REFERRAL_REWARD);
+                }
+                
+                totalRewardsDistributed += userReward + referralReward;
+                emit RewardPaid(msg.sender, userReward);
+            }
+        }
+        
+        return (userReward, referralReward);
+    }
+    
+    // Swap implementations
+    function _swapBNBForToken(address tokenOut, uint256 bnbAmount) private returns (uint256) {
+        address[] memory path = new address[](2);
+        path[0] = WBNB;
+        path[1] = tokenOut;
+        
+        uint256 balanceBefore = IERC20(tokenOut).balanceOf(msg.sender);
+        
+        try router.swapExactETHForTokensSupportingFeeOnTransferTokens{value: bnbAmount}(
+            0, // Accept any amount
+            path,
+            msg.sender,
+            block.timestamp + 300
+        ) {
+            uint256 balanceAfter = IERC20(tokenOut).balanceOf(msg.sender);
+            uint256 amountOut = balanceAfter - balanceBefore;
+            if (amountOut == 0) revert SwapFailed();
+            return amountOut;
+        } catch {
+            revert SwapFailed();
+        }
+    }
+    
+    function _swapTokenForBNB(address tokenIn, uint256 amountIn) private returns (uint256) {
+        // Transfer tokens from user
+        if (!IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn)) {
+            revert TransferFailed();
+        }
+        
+        // Approve router
+        if (!IERC20(tokenIn).approve(PANCAKE_ROUTER, amountIn)) {
+            revert TransferFailed();
+        }
+        
+        address[] memory path = new address[](2);
+        path[0] = tokenIn;
+        path[1] = WBNB;
+        
+        uint256 balanceBefore = msg.sender.balance;
+        
+        try router.swapExactTokensForETHSupportingFeeOnTransferTokens(
+            amountIn,
+            0, // Accept any amount
+            path,
+            msg.sender,
+            block.timestamp + 300
+        ) {
+            uint256 balanceAfter = msg.sender.balance;
+            uint256 amountOut = balanceAfter - balanceBefore;
+            if (amountOut == 0) revert SwapFailed();
+            return amountOut;
+        } catch {
+            revert SwapFailed();
+        }
+    }
+    
+    function _swapTokenForToken(address tokenIn, address tokenOut, uint256 amountIn) private returns (uint256) {
+        // Transfer tokens from user
+        if (!IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn)) {
+            revert TransferFailed();
+        }
+        
+        // Approve router
+        if (!IERC20(tokenIn).approve(PANCAKE_ROUTER, amountIn)) {
+            revert TransferFailed();
+        }
+        
+        address[] memory path;
+        if (tokenIn == WBNB || tokenOut == WBNB) {
+            path = new address[](2);
+            path[0] = tokenIn;
+            path[1] = tokenOut;
+        } else {
+            path = new address[](3);
+            path[0] = tokenIn;
+            path[1] = WBNB;
+            path[2] = tokenOut;
+        }
+        
+        uint256 balanceBefore = IERC20(tokenOut).balanceOf(msg.sender);
+        
+        try router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            amountIn,
+            0, // Accept any amount
+            path,
+            msg.sender,
+            block.timestamp + 300
+        ) {
+            uint256 balanceAfter = IERC20(tokenOut).balanceOf(msg.sender);
+            uint256 amountOut = balanceAfter - balanceBefore;
+            if (amountOut == 0) revert SwapFailed();
+            return amountOut;
+        } catch {
+            revert SwapFailed();
+        }
+    }
+    
+    // Rate limiting view functions
+    function getRemainingCooldown(address user) external view returns (uint256) {
+        uint256 elapsed = block.timestamp - lastSwapTime[user];
+        if (elapsed >= MIN_SWAP_INTERVAL) return 0;
+        return MIN_SWAP_INTERVAL - elapsed;
+    }
+    
+    function canSwapNow(address user) external view returns (bool) {
+        if (blacklisted[user] || paused || emergencyMode) return false;
+        
+        // Check rate limit
+        if (block.timestamp - lastSwapTime[user] < MIN_SWAP_INTERVAL) return false;
+        
+        // Check daily limit
+        uint256 timeSinceReset = block.timestamp - lastDayReset[user];
+        if (timeSinceReset >= RATE_LIMIT_WINDOW) return true;
+        
+        return swapCount24h[user] < MAX_SWAPS_PER_DAY;
+    }
+    
+    function getLastSwapTime(address user) external view returns (uint256) {
+        return lastSwapTime[user];
+    }
+    
+    // Referral view functions
+    function getReferralCode(address user) external view returns (uint256) {
+        return referralCodes[user];
+    }
+    
+    function getReferrerByCode(uint256 code) external view returns (address) {
+        return codeToReferrer[code];
+    }
+    
+    function getReferralStats(address user) external view returns (
+        uint256 code,
+        uint256 earnings,
+        uint256 totalRefs,
+        bool hasCode
+    ) {
+        code = referralCodes[user];
+        earnings = referralEarnings[user];
+        totalRefs = totalReferrals[user];
+        hasCode = code > 0;
+    }
+    
+    // Admin functions
+    function togglePause() external onlyOwner {
+        paused = !paused;
+        emit ContractPaused(paused);
+    }
+    
+    function toggleEmergencyMode() external onlyOwner {
+        emergencyMode = !emergencyMode;
+        emit EmergencyModeToggled(emergencyMode);
+    }
+    
+    function addToBlacklist(address user) external onlyOwner {
+        if (!blacklisted[user]) {
+            blacklisted[user] = true;
+            blacklistedAddresses.push(user);
+            emit UserBlacklisted(user, true);
+        }
+    }
+    
+    function removeFromBlacklist(address user) external onlyOwner {
+        if (blacklisted[user]) {
+            blacklisted[user] = false;
+            emit UserBlacklisted(user, false);
+        }
+    }
+    
+    function emergencyWithdraw() external onlyOwner {
+        uint256 balance = address(this).balance;
+        if (balance > 0) {
+            _safeTransferBNB(owner, balance);
+        }
+    }
+    
+    function emergencyWithdrawToken(address token) external onlyOwner {
+        uint256 balance = IERC20(token).balanceOf(address(this));
+        if (balance > 0) {
+            IERC20(token).transfer(owner, balance);
+        }
+    }
+    
+    function depositRewards(uint256 amount) external onlyOwner {
+        if (!IERC20(HERMES).transferFrom(msg.sender, address(this), amount)) {
+            revert TransferFailed();
+        }
+    }
+    
+    // View functions
+    function getContractInfo() external view returns (
+        uint256 hermesBalance,
+        uint256 bnbBalance,
+        uint256 swapCount,
+        uint256 rewardsDistributed,
+        uint256 feesCollected,
+        uint256 referralRewardsTotal,
+        uint256 referralFeesCollected,
+        bool canReward,
+        bool contractPaused,
+        bool emergency
+    ) {
+        hermesBalance = IERC20(HERMES).balanceOf(address(this));
+        bnbBalance = address(this).balance;
+        swapCount = totalSwaps;
+        rewardsDistributed = totalRewardsDistributed;
+        feesCollected = totalFeesCollected;
+        referralRewardsTotal = totalReferralRewards;
+        referralFeesCollected = totalReferralFeesCollected;
+        canReward = hermesBalance >= HERMES_TOTAL_REFERRAL;
+        contractPaused = paused;
+        emergency = emergencyMode;
+    }
+    
+    function getSecurityInfo(address user) external view returns (
+        bool isBlacklisted,
+        uint256 lastSwap,
+        uint256 dailySwaps,
+        uint256 remainingCooldown,
+        bool canSwap
+    ) {
+        isBlacklisted = blacklisted[user];
+        lastSwap = lastSwapTime[user];
+        dailySwaps = swapCount24h[user];
+        
+        uint256 elapsed = block.timestamp - lastSwapTime[user];
+        remainingCooldown = elapsed >= MIN_SWAP_INTERVAL ? 0 : MIN_SWAP_INTERVAL - elapsed;
+        
+        canSwap = this.canSwapNow(user);
+    }
+    
+    function getPlatformFees() external pure returns (uint256 swapFee, uint256 referralFee) {
+        return (SWAP_FEE, REFERRAL_CODE_FEE);
+    }
+    
+    function getRewardAmounts() external pure returns (
+        uint256 baseReward,
+        uint256 userRewardWithReferral,
+        uint256 referralReward,
+        uint256 totalReferralReward
+    ) {
+        return (HERMES_BASE_REWARD, HERMES_USER_REWARD, HERMES_REFERRAL_REWARD, HERMES_TOTAL_REFERRAL);
+    }
+}

@@ -1,0 +1,218 @@
+Hermes AI Stock analyses, [7/11/2025 2:17 PM]
+🚀 HermesSwapV4Secure Çalışma Sistemi Detaylı Analizi
+📋 Sistem Mimarisi
+Temel Bileşenler:
+🔗 BSC Mainnet
+├── PancakeSwap Router (0x10ED43C718714eb63d5aA57B78B54704E256024E)
+├── HERMES Token (0x9495aB3549338BF14aD2F86CbcF79C7b574bba37)
+├── Fee Collector (0xd88026A648C95780e3056ed98eD60E5105cc4863)
+└── HermesSwapV4Secure Contract
+
+💰 Ekonomik Model
+Fee Yapısı:
+📊 Platform Fees:
+├── Swap Fee: 0.0005 BNB (her swap'te)
+├── Referral Creation Fee: 0.0006 BNB (kod oluşturma)
+└── Otomatik Transfer → Fee Collector
+Ödül Sistemi:
+🎁 Reward Distribution:
+├── Referral YOK: 100,000 HERMES
+└── Referral VAR: 
+    ├── Kullanıcı: 110,000 HERMES (+10% bonus!)
+    └── Referral Sahibi: 10,000 HERMES
+
+🔄 İşlem Akış Şeması
+1. Normal Kullanıcı Swap:
+👤 User → [Contract] → 🔄 Process
+
+1️⃣ Fee Check: msg.value >= 0.0005 BNB ✅
+2️⃣ Security Check: Rate limit, blacklist, pause ✅
+3️⃣ Fee Transfer: 0.0005 BNB → Fee Collector ✅
+4️⃣ Token Swap: PancakeSwap execution ✅
+5️⃣ Reward: 100,000 HERMES → User ✅
+6️⃣ Event Log: SwapExecuted ✅
+2. Referral ile Swap:
+👤 User (with ref code) → [Contract] → 🔄 Process
+
+1️⃣ Fee Check: msg.value >= 0.0005 BNB ✅
+2️⃣ Security Check: Rate limit, blacklist, pause ✅
+3️⃣ Referral Validation: Code exists & valid ✅
+4️⃣ Fee Transfer: 0.0005 BNB → Fee Collector ✅
+5️⃣ Token Swap: PancakeSwap execution ✅
+6️⃣ Reward Distribution:
+    ├── 110,000 HERMES → User ✅
+    └── 10,000 HERMES → Referral Owner ✅
+7️⃣ Stats Update: Referral earnings, count ✅
+8️⃣ Event Log: SwapExecuted + ReferralRewardPaid ✅
+3. Referral Kod Oluşturma:
+👤 User → [Contract] → 🎫 Generate Code
+
+1️⃣ Fee Check: msg.value >= 0.0006 BNB ✅
+2️⃣ Security Check: Not contract, not blacklisted ✅
+3️⃣ Duplicate Check: User doesn't have code ✅
+4️⃣ Fee Transfer: 0.0006 BNB → Fee Collector ✅
+5️⃣ Code Generation: nextReferralCode++ ✅
+6️⃣ Mapping Update: 
+    ├── referralCodes[user] = code ✅
+    └── codeToReferrer[code] = user ✅
+7️⃣ Refund: Excess BNB back to user ✅
+8️⃣ Event Log: ReferralCodeGenerated ✅
+
+🛡 Güvenlik Sistemi
+Multi-Layer Security:
+1. Rate Limiting:
+⏱️ Time Constraints:
+├── Minimum Interval: 10 seconds between swaps
+├── Daily Limit: 50 swaps per user per day
+└── Auto Reset: Every 24 hours
+2. Amount Limits:
+💱 Swap Constraints:
+├── Minimum: 0.001 BNB
+├── Maximum: 100 BNB per transaction
+└── Slippage Protection: Max 50%
+3. Access Control:
+🔐 Permission System:
+├── Owner Only: Emergency functions
+├── Blacklist: Bad actors blocked
+├── Pause: System maintenance mode
+└── Emergency Mode: All swaps disabled
+4. Reentrancy Protection:
+🔒 Reentrancy Guard:
+├── locked flag başlangıç: false
+├── Function entry: locked = true
+├── Function execution: Main logic
+└── Function exit: locked = false
+
+🔄 Swap Türleri Detayı
+A) BNB → Token Swap:
+💎 BNB to Token Flow:
+1️⃣ Input: BNB (msg.value - 0.0005)
+2️⃣ Path: BNB → WBNB → Target Token
+3️⃣ Slippage: Calculate minimum output
+4️⃣ Execute: PancakeSwap router call
+5️⃣ Validate: Check received amount > 0
+6️⃣ Reward: HERMES distribution
+B) Token → BNB Swap:
+🔄 Token to BNB Flow:
+1️⃣ Allowance Check: User approved tokens ✅
+2️⃣ Transfer: Tokens → Contract ✅
+3️⃣ Router Approval: Contract → PancakeSwap ✅
+4️⃣ Path: Token → WBNB → BNB ✅
+5️⃣ Execute: PancakeSwap swap ✅
+6️⃣ Validate: BNB received > 0 ✅
+7️⃣ Reward: HERMES distribution ✅
+C) Token → Token Swap:
+🔁 Token to Token Flow:
+1️⃣ Allowance Check: User approved input tokens ✅
+2️⃣ Transfer: Input tokens → Contract ✅
+3️⃣ Router Approval: Contract → PancakeSwap ✅
+4️⃣ Path: TokenA → WBNB → TokenB ✅
+5️⃣ Execute: PancakeSwap multi-hop ✅
+6️⃣ Validate: Output tokens received > 0 ✅
+7️⃣ Reward: HERMES distribution ✅
+
+Hermes AI Stock analyses, [7/11/2025 2:17 PM]
+📊 Referral Sistemi Detayı
+Kod Yapısı:
+🎫 Referral Code System:
+├── Starting Code: 1000
+├── Increment: +1 (1001, 1002, 1003...)
+├── Mapping: code → wallet address
+└── Reverse Mapping: wallet → code
+Validation Logic:
+✅ Referral Validation:
+├── Code > 0 (provided)
+├── Code exists in mapping
+├── Code owner ≠ swap user (self-referral block)
+├── Code owner not blacklisted
+└── All checks pass → Apply referral rewards
+Earnings Tracking:
+📈 Statistics:
+├── referralEarnings[user] += 10,000 HERMES
+├── totalReferrals[user] += 1
+├── totalReferralRewards += 10,000 HERMES
+└── Event: ReferralRewardPaid
+
+⚡️ Gas Optimizasyonları
+1. Custom Errors:
+solidity// Eski yöntem (expensive)
+require(condition, "Error message");
+
+// Yeni yöntem (cheap)
+if (!condition) revert CustomError();
+2. Immutable Variables:
+solidity// Deployment time set, runtime read-only
+address private immutable PANCAKE_ROUTER;
+3. Packed Storage:
+solidity// Multiple values in single storage slot
+uint256 packed = (value1 << 128) | value2;
+
+🔍 Monitoring & Events
+Critical Events:
+📡 Event Tracking:
+├── SwapExecuted: Every swap details
+├── RewardPaid: HERMES distribution
+├── ReferralRewardPaid: Referral earnings
+├── FeeCollected: Platform revenue
+├── UserBlacklisted: Security actions
+├── EmergencyModeToggled: System status
+└── ContractPausedEvent: Maintenance mode
+Security Monitoring:
+🚨 Security Events:
+├── Rate limit violations
+├── Blacklist additions
+├── Emergency mode activations
+├── Failed swap attempts
+└── Unusual activity patterns
+
+🎯 Admin Dashboard Fonksiyonları
+Emergency Controls:
+🚨 Admin Functions:
+├── setPaused(bool): System pause/unpause
+├── toggleEmergencyMode(): Emergency activation
+├── setBlacklistStatus(address, bool): User blocking
+├── emergencyWithdrawBNB(): Fund recovery
+├── emergencyWithdrawToken(): Token recovery
+└── depositRewards(uint256): HERMES funding
+Monitoring Functions:
+📊 View Functions:
+├── getContractInfo(): Platform statistics
+├── getSecurityInfo(user): User security status
+├── getReferralStats(user): Referral performance
+├── estimateSwap(): Price prediction
+└── getRewardBalance(): Available HERMES
+
+🔄 Gerçek Kullanım Senaryoları
+Senaryo 1: İlk Kullanıcı
+👤 Alice (yeni kullanıcı):
+1️⃣ hermesaiswap.com'a gelir
+2️⃣ generateReferralCode() ile kod oluşturur (1000)
+3️⃣ 0.0006 BNB ödeyerek kod alır
+4️⃣ Referral link paylaşır: hermesaiswap.com/?ref=1000
+5️⃣ 0.1 BNB → HERMES swap yapar
+6️⃣ 100,000 HERMES + swap edilmiş HERMES alır
+Senaryo 2: Referral Kullanımı
+👤 Bob (Alice'in referral linki ile):
+1️⃣ hermesaiswap.com/?ref=1000 linkini açar
+2️⃣ 1000 referral kodu otomatik yakalanır
+3️⃣ 0.1 BNB → USDT swap yapar (ref: 1000)
+4️⃣ USDT alır + 110,000 HERMES bonus
+5️⃣ Alice: 10,000 HERMES pasif gelir kazanır
+Senaryo 3: Güvenlik Senaryosu
+🚨 Şüpheli Activity:
+1️⃣ Charlie: 1 saniyede 10 swap yapmaya çalışır
+2️⃣ Rate limiter: "RateLimited" error
+3️⃣ Admin: Charlie'yi blacklist'e alır
+4️⃣ Charlie: Artık hiçbir işlem yapamaz
+5️⃣ System: Normal kullanıcılar etkilenmez
+
+🎯 Sistem Performansı
+Transaction Flow:
+⚡️ Single Transaction Timeline:
+├── Security Checks: ~5,000 gas
+├── Fee Transfer: ~21,000 gas
+├── Token Swap: ~150,000 gas
+├── Reward Distribution: ~50,000 gas
+├── Event Logging: ~10,000 gas
+└── Total: ~236,000 gas (optimized!)
+Bu sistem maksimum güvenlik ile optimal performanceı birleştirerek hermesaiswap.com için enterprise-level bir swap platformu sağlıyor! 🚀🛡

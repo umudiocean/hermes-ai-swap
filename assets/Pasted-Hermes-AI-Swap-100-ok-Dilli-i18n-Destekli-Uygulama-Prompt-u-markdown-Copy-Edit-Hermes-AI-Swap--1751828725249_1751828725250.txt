@@ -1,0 +1,101 @@
+Hermes AI Swap – %100 Çok Dilli (i18n) Destekli Uygulama Prompt'u
+markdown
+Copy
+Edit
+Hermes AI Swap frontend uygulamasına tam kapsamlı bir uluslararasılaştırma (i18n) sistemi entegre etmek istiyorum.
+
+---
+
+### 🧠 Amaç:
+
+- Uygulamadaki tüm içerikler (başlıklar, menüler, butonlar, modüller, uyarılar, dashboard yazıları, referans bölümü, footer metinleri...)  
+  **hangi dil seçildiyse otomatik olarak o dile çevrilecek.**
+
+- Sayfaya ilk girişte **default dil İngilizce (en)** olacak.
+
+---
+
+### 🌐 Desteklenecek Diller:
+
+[
+"en", // English (default)
+"zh", // Chinese (Mandarin)
+"fr", // French
+"de", // German
+"hi", // Hindi
+"it", // Italian
+"ja", // Japanese
+"pt", // Portuguese
+"ru", // Russian
+"es" // Spanish
+]
+
+yaml
+Copy
+Edit
+
+---
+
+### ⚙️ Teknik Gereksinimler:
+
+- Kütüphane: `react-i18next` (veya Next.js için `next-i18next`) kullanılacak.
+- Çeviri dosyaları `public/locales/{lang}/translation.json` klasör yapısında tutulacak.
+- Uygulamadaki sabit metinler `t("key.path")` şeklinde çekilecek.
+- Varsayılan dil `en`, `localStorage` üzerinden kullanıcı tercihi tutulmalı.
+- Dil seçildiğinde sayfa yeniden yüklenmeden dil anında değiştirilecek.
+
+---
+
+### 📋 Örnek Anahtarlar:
+
+```json
+// en/translation.json
+{
+  "nav": {
+    "swap": "Swap",
+    "referral": "Referral",
+    "about": "About",
+    "audit": "Audit Report",
+    "join_x": "Join Now (X)",
+    "join_telegram": "Join Now (Telegram)"
+  },
+  "dashboard": {
+    "title": "Your Wallet Performance",
+    "swaps": "Total Swaps",
+    "earned": "Total HERMES Earned",
+    "saved": "Gas Fee Saved"
+  },
+  "swap": {
+    "swap_now": "Swap Now",
+    "reward_info": "Earn 100,000 HERMES per swap!"
+  }
+}
+Her dil için karşılık gelen çeviri dosyaları hazırlanmalı (zh/translation.json, fr/translation.json vs.)
+
+📌 Uygulanacak Alanlar:
+Navbar ve tüm menüler
+
+Swap arayüzü
+
+Referans sayfası
+
+Hakkında sayfası
+
+Footer bilgileri
+
+Ödül bilgilendirme kutuları
+
+Kullanıcı dashboard'u
+
+Her popup, tooltip ve uyarı mesajı
+
+🧩 Ekstra:
+Dil seçici, header'da görünür olacak
+
+Seçilen dil localStorage'a yazılacak
+
+Mobil uyumlu olmalı
+
+Seçili dilde flag ikon veya ISO dil kodu (EN, FR, ZH) gösterilebilir
+
+Bu yapıya göre uygulamanın tüm çeviri sistemi kurulmalı ve her bileşen çeviri dosyasından dinamik olarak veri çekmelidir.

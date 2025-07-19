@@ -1,0 +1,285 @@
+// RainbowKit Alternatif (Daha kolay ve güzel görünüm)
+// npm install @rainbow-me/rainbowkit wagmi viem@2.x @tanstack/react-query
+
+// 1. RainbowKit Provider - providers/RainbowKitProvider.jsx
+import '@rainbow-me/rainbowkit/styles.css';
+import {
+  getDefaultConfig,
+  RainbowKitProvider,
+  darkTheme,
+} from '@rainbow-me/rainbowkit';
+import { WagmiProvider } from 'wagmi';
+import { bsc } from 'wagmi/chains';
+import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
+
+const config = getDefaultConfig({
+  appName: 'HermesAI Swap',
+  projectId: 'YOUR_PROJECT_ID', // https://cloud.walletconnect.com
+  chains: [bsc],
+  ssr: false,
+});
+
+const queryClient = new QueryClient();
+
+// Custom theme
+const customTheme = darkTheme({
+  accentColor: '#ff4444',
+  accentColorForeground: 'white',
+  borderRadius: 'medium',
+  fontStack: 'system',
+  overlayBlur: 'small',
+});
+
+export function Providers({ children }) {
+  return (
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        <RainbowKitProvider 
+          theme={customTheme}
+          coolMode
+        >
+          {children}
+        </RainbowKitProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
+  );
+}
+
+// 2. App with RainbowKit - App.jsx
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount, useWalletClient, usePublicClient } from 'wagmi';
+import { parseEther, formatEther } from 'viem';
+import { useState, useEffect } from 'react';
+import HermesBalanceCard from './components/HermesBalanceCard';
+
+// Contract ABIs
+const SWAP_ABI = [...]; // Your swap contract ABI
+
+function App() {
+  const { address, isConnected, chain } = useAccount();
+  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
+  
+  // Custom Connect Button
+  const CustomConnectButton = () => {
+    return (
+      <ConnectButton.Custom>
+        {({
+          account,
+          chain,
+          openAccountModal,
+          openChainModal,
+          openConnectModal,
+          authenticationStatus,
+          mounted,
+        }) => {
+          const ready = mounted && authenticationStatus !== 'loading';
+          const connected =
+            ready &&
+            account &&
+            chain &&
+            (!authenticationStatus ||
+              authenticationStatus === 'authenticated');
+
+          return (
+            <div
+              {...(!ready && {
+                'aria-hidden': true,
+                'style': {
+                  opacity: 0,
+                  pointerEvents: 'none',
+                  userSelect: 'none',
+                },
+              })}
+            >
+              {(() => {
+                if (!connected) {
+                  return (
+                    <button 
+                      onClick={openConnectModal} 
+                      className="connect-wallet-btn"
+                    >
+                      🔗 Cüzdan Bağla
+                    </button>
+                  );
+                }
+
+                if (chain.unsupported) {
+                  return (
+                    <button 
+                      onClick={openChainModal} 
+                      className="wrong-network-btn"
+                    >
+                      ⚠️ Yanlış Ağ
+                    </button>
+                  );
+                }
+
+                return (
+                  <div className="connected-wallet">
+                    <button
+                      onClick={openChainModal}
+                      className="chain-btn"
+                    >
+                      {chain.hasIcon && (
+                        <div className="chain-icon">
+                          {chain.iconUrl && (
+                            <img
+                              alt={chain.name ?? 'Chain icon'}
+                              src={chain.iconUrl}
+                              width={20}
+                              height={20}
+                            />
+                          )}
+                        </div>
+                      )}
+                      {chain.name}
+                    </button>
+
+                    <button 
+                      onClick={openAccountModal} 
+                      className="account-btn"
+                    >
+                      {account.displayName}
+                      {account.displayBalance
+                        ? ` (${account.displayBalance})`
+                        : ''}
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
+          );
+        }}
+      </ConnectButton.Custom>
+    );
+  };
+
+  // Swap function
+  const swapHermesToBNB = async (amount) => {
+    if (!walletClient || !address) return;
+
+    try {
+      const { request } = await publicClient.simulateContract({
+        address: SWAP_CONTRACT_ADDRESS,
+        abi: SWAP_ABI,
+        functionName: 'swapHERMESToBNB',
+        args: [parseEther(amount.toString())],
+        account: address,
+        value: parseEther('0.0005'), // Platform fee
+      });
+
+      const hash = await walletClient.writeContract(request);
+      
+      const receipt = await publicClient.waitForTransactionReceipt({ 
+        hash,
+      });
+
+      if (receipt.status === 'success') {
+        alert('Swap başarılı!');
+      }
+    } catch (error) {
+      console.error('Swap error:', error);
+      alert('Swap hatası: ' + error.message);
+    }
+  };
+
+  return (
+    <div className="app">
+      <header>
+        <CustomConnectButton />
+      </header>
+
+      {isConnected ? (
+        <div className="dashboard">
+          <HermesBalanceCard 
+            userAddress={address}
+            provider={publicClient}
+          />
+          
+          <div className="swap-section">
+            <h2>HERMES Swap</h2>
+            <button onClick={() => swapHermesToBNB(100)}>
+              100 HERMES → BNB
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="welcome">
+          <h1>HermesAI Swap'e Hoş Geldiniz</h1>
+          <p>İşlem yapmak için cüzdanınızı bağlayın</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default App;
+
+// 3. Custom Button Styles
+.connect-wallet-btn {
+  background: linear-gradient(135deg, #ff4444 0%, #ff6666 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 68, 68, 0.3);
+}
+
+.connect-wallet-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 68, 68, 0.4);
+}
+
+.connected-wallet {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.chain-btn,
+.account-btn {
+  background: #1a1a1a;
+  color: white;
+  border: 1px solid #333;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.chain-btn:hover,
+.account-btn:hover {
+  background: #2a2a2a;
+  border-color: #ff4444;
+}
+
+.wrong-network-btn {
+  background: #ff4444;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chain-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chain-icon img {
+  border-radius: 50%;
+}

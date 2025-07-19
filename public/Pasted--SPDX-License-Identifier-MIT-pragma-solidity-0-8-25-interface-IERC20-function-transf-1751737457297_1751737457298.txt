@@ -1,0 +1,218 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.25;
+
+interface IERC20 {
+    function transfer(address to, uint256 amount) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function decimals() external view returns (uint8);
+}
+
+interface IPancakeRouter02 {
+    function swapExactETHForTokens(
+        uint amountOutMin, 
+        address[] calldata path, 
+        address to, 
+        uint deadline
+    ) external payable returns (uint[] memory amounts);
+    
+    function WETH() external pure returns (address);
+    
+    function getAmountsOut(uint amountIn, address[] calldata path)
+        external view returns (uint[] memory amounts);
+}
+
+contract HermesOptimizedRouterFixed {
+    // Sabit adresler
+    address public constant PANCAKE_ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+    address public constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+    address public constant HERMES_TOKEN = 0x9495aB3549338BF14aD2F86CbcF79C7b574bba37;
+    address public constant FEE_COLLECTOR = 0xd88026A648C95780e3056ed98eD60E5105cc4863;
+    
+    // Sabit değerler
+    uint256 public constant FEE_AMOUNT = 500000000000000; // 0.0005 BNB
+    uint256 public constant HERMES_REWARD = 100000 * 10**18; // 100,000 HERMES (18 decimals)
+    
+    // Kullanıcı istatistikleri
+    mapping(address => uint256) public userSwapCount;
+    mapping(address => uint256) public totalRewardsEarned;
+    
+    // Events
+    event SwapExecuted(
+        address indexed user, 
+        address indexed tokenOut, 
+        uint256 bnbAmount, 
+        uint256 tokenAmount, 
+        uint256 hermesReward
+    );
+    event EmergencyWithdrawal(address indexed token, uint256 amount);
+    
+    // Hata mesajları
+    error InsufficientBNB();
+    error InvalidAddress();
+    error DeadlineExpired();
+    error FeeTransferFailed();
+    error SwapFailed();
+    error InsufficientHermesBalance();
+    error RewardTransferFailed();
+    error Unauthorized();
+    
+    // Fallback function - BNB almak için
+    receive() external payable {}
+    
+    /**
+     * @dev Ana fonksiyon: BNB ile token swap + fee + Hermes ödülü
+     * @param amountOutMin Minimum çıkış token miktarı
+     * @param tokenOut Hedef token adresi
+     * @param to Token alıcı adresi
+     * @param deadline İşlem deadline'ı
+     */
+    function swapExactETHForTokensWithHermesReward(
+        uint256 amountOutMin,
+        address tokenOut,
+        address to,
+        uint256 deadline
+    ) external payable {
+        // Input validasyonları
+        if (msg.value <= FEE_AMOUNT) revert InsufficientBNB();
+        if (tokenOut == address(0) || to == address(0)) revert InvalidAddress();
+        if (deadline < block.timestamp) revert DeadlineExpired();
+        
+        // Swap miktarını hesapla (toplam - fee)
+        uint256 swapAmount = msg.value - FEE_AMOUNT;
+        
+        // 1. Fee'yi collector'a gönder
+        (bool feeSuccess,) = FEE_COLLECTOR.call{value: FEE_AMOUNT}("");
+        if (!feeSuccess) revert FeeTransferFailed();
+        
+        // 2. Swap path'ini hazırla
+        address[] memory path = new address[](2);
+        path[0] = WBNB;
+        path[1] = tokenOut;
+        
+        // 3. PancakeSwap üzerinden swap yap
+        uint256[] memory amounts;
+        try IPancakeRouter02(PANCAKE_ROUTER).swapExactETHForTokens{value: swapAmount}(
+            amountOutMin,
+            path,
+            to,
+            deadline
+        ) returns (uint256[] memory _amounts) {
+            amounts = _amounts;
+        } catch {
+            revert SwapFailed();
+        }
+        
+        // 4. Hermes ödülünü gönder
+        uint256 hermesBalance = IERC20(HERMES_TOKEN).balanceOf(address(this));
+        if (hermesBalance < HERMES_REWARD) revert InsufficientHermesBalance();
+        
+        bool rewardSuccess = IERC20(HERMES_TOKEN).transfer(to, HERMES_REWARD);
+        if (!rewardSuccess) revert RewardTransferFailed();
+        
+        // 5. İstatistikleri güncelle
+        userSwapCount[to]++;
+        totalRewardsEarned[to] += HERMES_REWARD;
+        
+        // 6. Event emit et
+        emit SwapExecuted(to, tokenOut, swapAmount, amounts[1], HERMES_REWARD);
+    }
+    
+    /**
+     * @dev Kullanıcının toplam swap sayısını döndürür
+     */
+    function getUserSwapCount(address user) external view returns (uint256) {
+        return userSwapCount[user];
+    }
+    
+    /**
+     * @dev Kullanıcının toplam kazandığı Hermes miktarını döndürür  
+     */
+    function getTotalRewardsEarned(address user) external view returns (uint256) {
+        return totalRewardsEarned[user];
+    }
+    
+    /**
+     * @dev Kontratın Hermes token bakiyesini döndürür
+     */
+    function getContractHermesBalance() external view returns (uint256) {
+        return IERC20(HERMES_TOKEN).balanceOf(address(this));
+    }
+    
+    /**
+     * @dev Kontratın BNB bakiyesini döndürür
+     */
+    function getContractBNBBalance() external view returns (uint256) {
+        return address(this).balance;
+    }
+    
+    /**
+     * @dev Tahmini çıkış token miktarını hesaplar
+     */
+    function getEstimatedTokenOut(uint256 bnbAmount, address tokenOut) 
+        external view returns (uint256) {
+        if (bnbAmount <= FEE_AMOUNT) return 0;
+        
+        uint256 swapAmount = bnbAmount - FEE_AMOUNT;
+        address[] memory path = new address[](2);
+        path[0] = WBNB;
+        path[1] = tokenOut;
+        
+        try IPancakeRouter02(PANCAKE_ROUTER).getAmountsOut(swapAmount, path) 
+            returns (uint256[] memory amounts) {
+            return amounts[1];
+        } catch {
+            return 0;
+        }
+    }
+    
+    // =================== EMERGENCY FUNCTIONS ===================
+    
+    /**
+     * @dev Acil durum BNB çekme (sadece fee collector)
+     */
+    function emergencyWithdrawBNB() external {
+        if (msg.sender != FEE_COLLECTOR) revert Unauthorized();
+        
+        uint256 balance = address(this).balance;
+        (bool success,) = FEE_COLLECTOR.call{value: balance}("");
+        if (!success) revert FeeTransferFailed();
+        
+        emit EmergencyWithdrawal(address(0), balance);
+    }
+    
+    /**
+     * @dev Acil durum token çekme (sadece fee collector)
+     */
+    function emergencyWithdrawTokens(address token) external {
+        if (msg.sender != FEE_COLLECTOR) revert Unauthorized();
+        if (token == address(0)) revert InvalidAddress();
+        
+        uint256 balance = IERC20(token).balanceOf(address(this));
+        bool success = IERC20(token).transfer(FEE_COLLECTOR, balance);
+        if (!success) revert RewardTransferFailed();
+        
+        emit EmergencyWithdrawal(token, balance);
+    }
+    
+    /**
+     * @dev Kontrat bilgilerini döndürür
+     */
+    function getContractInfo() external pure returns (
+        address router,
+        address wbnb, 
+        address hermesToken,
+        address feeCollector,
+        uint256 feeAmount,
+        uint256 hermesReward
+    ) {
+        return (
+            PANCAKE_ROUTER,
+            WBNB,
+            HERMES_TOKEN, 
+            FEE_COLLECTOR,
+            FEE_AMOUNT,
+            HERMES_REWARD
+        );
+    }
+}

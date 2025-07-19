@@ -1,0 +1,72 @@
+Geliştiriciye Verilecek Uluslararasılaştırma (i18n) Prompt'u
+markdown
+Copy
+Edit
+Uygulamadaki çoklu dil sistemi şu anda eksik çalışıyor. Kullanıcı hangi dili seçerse seçsin, arayüzde kalan Türkçe sabit metinler oluyor. Bu problemi çözmek için tam kapsamlı bir i18n sistemi uygulanmalı.
+
+---
+
+### 🎯 Amaç:
+Uygulamanın tüm metin içerikleri, kullanıcı tarafından seçilen dile göre %100 otomatik olarak değişmeli.
+
+---
+
+### 🛠️ Teknik Gereksinim:
+
+- i18n altyapısı `react-i18next` kütüphanesi ile kurulmalı
+- Desteklenecek diller:
+
+```ts
+[
+  "en", // English
+  "zh", // Chinese (Mandarin)
+  "fr", // French
+  "de", // German
+  "hi", // Hindi
+  "it", // Italian
+  "ja", // Japanese
+  "pt", // Portuguese
+  "ru", // Russian
+  "es"  // Spanish
+]
+public/locales/{lang}/translation.json klasör yapısı kullanılmalı
+
+Tüm metinler çeviri dosyalarına aktarılmalı, örnek:
+
+json
+Copy
+Edit
+{
+  "nav.swap": "Swap",
+  "nav.referral": "Referral System",
+  "nav.about": "About",
+  "nav.audit": "Audit Report",
+  "nav.join_x": "Join Now (X)",
+  "nav.join_telegram": "Join Now (Telegram)",
+  "hero.title": "AI-Powered Decentralized Exchange",
+  "referral.description": "Invite friends and earn 10,000 HERMES Coins per swap."
+}
+Kod içinde t("key.path") şeklinde kullanılmalı
+
+🔄 Dinamik Değişim:
+Kullanıcı header’daki dil seçicisinden bir dili seçtiğinde:
+
+O dil i18next.changeLanguage(lang) ile aktif edilmeli
+
+Sayfa yenilenmeden tüm metinler otomatik güncellenmeli
+
+Kullanıcının seçimi localStorage'ta tutulmalı
+
+📌 Sorunlu Alanlar:
+Şu anda Türkçe sabit metinler hâlâ İngilizce dil seçiliyken görünmekte (örnek: “Teknoloji ve Güvenlik”, “Hakkında”, “Referans Sistemi” vs.)
+
+Bu alanlardaki tüm sabit Türkçe metinler, translation.json dosyasına taşınmalı
+
+✅ Ekstra:
+Dil seçici ikonlar düzgün sıralanmalı
+
+Seçilen dil üstte vurgulanmalı (örnek: “EN” bold ya da renkli)
+
+Tüm dil değişimleri erişilebilir olmalı (aria-label, lang etiketi gibi)
+
+Bu yapı kurulduktan sonra uygulama %100 çoklu dil uyumlu hale gelmeli. Sabit metin bırakılmamalı.

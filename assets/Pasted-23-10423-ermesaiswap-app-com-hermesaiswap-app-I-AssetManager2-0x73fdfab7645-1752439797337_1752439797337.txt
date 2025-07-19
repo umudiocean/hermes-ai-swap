@@ -1,0 +1,86 @@
+23-10423 ermesaiswap.app         com.hermesaiswap.app                 I  AssetManager2(0x73fdfab76458) locale list changing from [] to [en-US]
+2025-07-13 13:49:30.758 10423-10438 EGL_emulation           com.hermesaiswap.app                 I  Opening libGLESv1_CM_emulation.so
+2025-07-13 13:49:30.762 10423-10438 EGL_emulation           com.hermesaiswap.app                 I  Opening libGLESv2_emulation.so
+2025-07-13 13:49:30.794 10423-10438 HWUI                    com.hermesaiswap.app                 W  Failed to choose config with EGL_SWAP_BEHAVIOR_PRESERVED, retrying without...
+2025-07-13 13:49:30.820 10423-10423 AppCompatDelegate       com.hermesaiswap.app                 D  Checking for metadata for AppLocalesMetadataHolderService : Service not found
+2025-07-13 13:49:30.822 10423-10423 ermesaiswap.app         com.hermesaiswap.app                 I  AssetManager2(0x73fdfab73578) locale list changing from [] to [en-US]
+2025-07-13 13:49:30.829 10423-10438 HWUI                    com.hermesaiswap.app                 W  Failed to initialize 101010-2 format, error = EGL_SUCCESS
+2025-07-13 13:49:30.840 10423-10423 ashmem                  com.hermesaiswap.app                 E  Pinning is deprecated since Android Q. Please use trim or other methods.
+2025-07-13 13:49:30.899 10423-10423 TransactionExecutor     com.hermesaiswap.app                 E  Failed to execute the transaction: tId:-277309894 ClientTransaction{
+                                                                                                    tId:-277309894   transactionItems=[
+                                                                                                    tId:-277309894     LaunchActivityItem{activityToken=android.os.BinderProxy@be3a5e1,intent=Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 xflg=0x4 cmp=com.hermesaiswap.app/.MainActivity bnds=[824,1873][997,2068] },ident=56990252,info=ActivityInfo{2c57d45 com.hermesaiswap.app.MainActivity},curConfig={1.0 310mcc260mnc [en_US] ldltr sw411dp w411dp h866dp 420dpi nrml long port finger qwerty/v/v dpad/v winConfig={ mBounds=Rect(0, 0 - 1080, 2400) mAppBounds=Rect(0, 0 - 1080, 2337) mMaxBounds=Rect(0, 0 - 1080, 2400) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_0} as.2 s.152 fontWeightAdjustment=0},overrideConfig={1.0 310mcc260mnc [en_US] ldltr sw411dp w411dp h866dp 420dpi nrml long port finger qwerty/v/v dpad/v winConfig={ mBounds=Rect(0, 0 - 1080, 2400) mAppBounds=Rect(0, 0 - 1080, 2337) mMaxBounds=Rect(0, 0 - 1080, 2400) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=standard mAlwaysOnTop=undefined mRotation=ROTATION_0} as.2 s.2 fontWeightAdjustment=0},deviceId=0,referrer=null,procState=2,state=null,persistentState=null,pendingResults=null,pendingNewIntents=null,sceneTransitionInfo=null,profilerInfo=null,assistToken=android.os.BinderProxy@d1aa58e,shareableActivityToken=android.os.BinderProxy@c9df1af,activityWindowInfo=ActivityWindowInfo{isEmbedded=false, taskBounds=Rect(0, 0 - 1080, 2400), taskFragmentBounds=Rect(0, 0 - 1080, 2400)}}
+                                                                                                    tId:-277309894     ResumeActivityItem{mActivityToken=android.os.BinderProxy@be3a5e1,procState=-1,isForward=true,shouldSendCompatFakeFocus=false}
+                                                                                                    tId:-277309894     Target activity: com.hermesaiswap.app.MainActivity
+                                                                                                    tId:-277309894   ]
+                                                                                                    tId:-277309894 }
+2025-07-13 13:49:30.899 10423-10423 AndroidRuntime          com.hermesaiswap.app                 D  Shutting down VM
+2025-07-13 13:49:30.904 10423-10423 AndroidRuntime          com.hermesaiswap.app                 E  FATAL EXCEPTION: main
+                                                                                                    Process: com.hermesaiswap.app, PID: 10423
+                                                                                                    java.lang.RuntimeException: Unable to start activity ComponentInfo{com.hermesaiswap.app/com.hermesaiswap.app.MainActivity}: android.content.res.Resources$NotFoundException: Drawable com.hermesaiswap.app:drawable/splash with resource ID #0x7f070069
+                                                                                                    	at android.app.ActivityThread.performLaunchActivity(ActivityThread.java:4280)
+                                                                                                    	at android.app.ActivityThread.handleLaunchActivity(ActivityThread.java:4467)
+                                                                                                    	at android.app.servertransaction.LaunchActivityItem.execute(LaunchActivityItem.java:222)
+                                                                                                    	at android.app.servertransaction.TransactionExecutor.executeNonLifecycleItem(TransactionExecutor.java:133)
+                                                                                                    	at android.app.servertransaction.TransactionExecutor.executeTransactionItems(TransactionExecutor.java:103)
+                                                                                                    	at android.app.servertransaction.TransactionExecutor.execute(TransactionExecutor.java:80)
+                                                                                                    	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2823)
+                                                                                                    	at android.os.Handler.dispatchMessage(Handler.java:110)
+                                                                                                    	at android.os.Looper.loopOnce(Looper.java:248)
+                                                                                                    	at android.os.Looper.loop(Looper.java:338)
+                                                                                                    	at android.app.ActivityThread.main(ActivityThread.java:9067)
+                                                                                                    	at java.lang.reflect.Method.invoke(Native Method)
+                                                                                                    	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:593)
+                                                                                                    	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:932)
+                                                                                                    Caused by: android.content.res.Resources$NotFoundException: Drawable com.hermesaiswap.app:drawable/splash with resource ID #0x7f070069
+                                                                                                    Caused by: android.content.res.Resources$NotFoundException: File res/drawable/splash.xml from drawable resource ID #0x7f070069
+                                                                                                    	at android.content.res.ResourcesImpl.loadDrawableForCookie(ResourcesImpl.java:1032)
+                                                                                                    	at android.content.res.ResourcesImpl.loadDrawable(ResourcesImpl.java:791)
+                                                                                                    	at android.content.res.Resources.loadDrawable(Resources.java:1023)
+                                                                                                    	at android.content.res.TypedArray.getDrawableForDensity(TypedArray.java:1027)
+                                                                                                    	at android.content.res.TypedArray.getDrawable(TypedArray.java:1000)
+                                                                                                    	at android.view.View.<init>(View.java:6065)
+                                                                                                    	at android.view.ViewGroup.<init>(ViewGroup.java:715)
+                                                                                                    	at android.view.ViewGroup.<init>(ViewGroup.java:711)
+                                                                                                    	at android.view.ViewGroup.<init>(ViewGroup.java:707)
+                                                                                                    	at android.view.ViewGroup.<init>(ViewGroup.java:703)
+                                                                                                    	at android.widget.FrameLayout.<init>(FrameLayout.java:85)
+                                                                                                    	at com.android.internal.policy.DecorView.<init>(DecorView.java:296)
+                                                                                                    	at com.android.internal.policy.PhoneWindow.generateDecor(PhoneWindow.java:2521)
+                                                                                                    	at com.android.internal.policy.PhoneWindow.installDecor(PhoneWindow.java:2921)
+                                                                                                    	at com.android.internal.policy.PhoneWindow.getDecorView(PhoneWindow.java:2271)
+                                                                                                    	at androidx.appcompat.app.AppCompatActivity.initViewTreeOwners(AppCompatActivity.java:221)
+                                                                                                    	at androidx.appcompat.app.AppCompatActivity.setContentView(AppCompatActivity.java:196)
+                                                                                                    	at com.hermesaiswap.app.MainActivity.onCreate(MainActivity.java:17)
+                                                                                                    	at android.app.Activity.performCreate(Activity.java:9155)
+                                                                                                    	at android.app.Activity.performCreate(Activity.java:9133)
+                                                                                                    	at android.app.Instrumentation.callActivityOnCreate(Instrumentation.java:1521)
+                                                                                                    	at android.app.ActivityThread.performLaunchActivity(ActivityThread.java:4262)
+                                                                                                    	at android.app.ActivityThread.handleLaunchActivity(ActivityThread.java:4467)
+                                                                                                    	at android.app.servertransaction.LaunchActivityItem.execute(LaunchActivityItem.java:222)
+                                                                                                    	at android.app.servertransaction.TransactionExecutor.executeNonLifecycleItem(TransactionExecutor.java:133)
+                                                                                                    	at android.app.servertransaction.TransactionExecutor.executeTransactionItems(TransactionExecutor.java:103)
+                                                                                                    	at android.app.servertransaction.TransactionExecutor.execute(TransactionExecutor.java:80)
+                                                                                                    	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2823)
+                                                                                                    	at android.os.Handler.dispatchMessage(Handler.java:110)
+                                                                                                    	at android.os.Looper.loopOnce(Looper.java:248)
+                                                                                                    	at android.os.Looper.loop(Looper.java:338)
+                                                                                                    	at android.app.ActivityThread.main(ActivityThread.java:9067)
+                                                                                                    	at java.lang.reflect.Method.invoke(Native Method)
+2025-07-13 13:49:30.909 10423-10423 AndroidRuntime          com.hermesaiswap.app                 E  	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:593)
+                                                                                                    	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:932)
+                                                                                                    Caused by: org.xmlpull.v1.XmlPullParserException: Binary XML file line #7: <bitmap> requires a valid 'src' attribute
+                                                                                                    	at android.graphics.drawable.BitmapDrawable.updateStateFromTypedArray(BitmapDrawable.java:861)
+                                                                                                    	at android.graphics.drawable.BitmapDrawable.inflate(BitmapDrawable.java:782)
+                                                                                                    	at android.graphics.drawable.DrawableInflater.inflateFromXmlForDensity(DrawableInflater.java:141)
+                                                                                                    	at android.graphics.drawable.Drawable.createFromXmlInnerForDensity(Drawable.java:1394)
+                                                                                                    	at android.graphics.drawable.Drawable.createFromXmlInner(Drawable.java:1384)
+                                                                                                    	at android.graphics.drawable.LayerDrawable.inflateLayers(LayerDrawable.java:285)
+                                                                                                    	at android.graphics.drawable.LayerDrawable.inflate(LayerDrawable.java:200)
+                                                                                                    	at android.graphics.drawable.DrawableInflater.inflateFromXmlForDensity(DrawableInflater.java:141)
+                                                                                                    	at android.graphics.drawable.Drawable.createFromXmlInnerForDensity(Drawable.java:1394)
+                                                                                                    	at android.graphics.drawable.Drawable.createFromXmlForDensity(Drawable.java:1355)
+                                                                                                    	at android.content.res.ResourcesImpl.loadXmlDrawable(ResourcesImpl.java:1064)
+                                                                                                    	at android.content.res.ResourcesImpl.loadDrawableForCookie(ResourcesImpl.java:998)
+                                                                                                    	... 34 more
+2025-07-13 13:49:30.958 10423-10423 Process                 com.hermesaiswap.app                 I  Sending signal. PID: 10423 SIG: 9
+---------------------------- PROCESS ENDED (10423) for package com.hermesaiswap.app ----------------------------

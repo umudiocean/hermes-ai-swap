@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+interface IPancakeRouter {
+    function swapExactETHForTokens(
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external payable returns (uint[] memory amounts);
+}
+
+interface IERC20 {
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function decimals() external view returns (uint8);
+}
+
+contract HermesSwapRouter {
+    address public immutable pancakeRouter;
+    address public immutable feeReceiver;
+    address public immutable hermesToken;
+    uint256 public constant feeBNB = 0.0004 ether;
+    uint256 public constant hermesRewardPerSwap = 100000 * 10**18;
+
+    mapping(address => uint256) public claimableHermes;
+
+    constructor(address _router, address _feeReceiver, address _hermesToken) {
+        pancakeRouter = _router;
+        feeReceiver = _feeReceiver;
+        hermesToken = _hermesToken;
+    }
+
+    function swapExactETHForTokensWithFee(address[] calldata path, uint amountOutMin) external payable {
+        require(path.length >= 2, "Invalid swap path");
+        require(msg.value > feeBNB, "Insufficient ETH for fee + swap");
+
+        // 1. Fee aktarımı
+        (bool sent, ) = payable(feeReceiver).call{value: feeBNB}("");
+        require(sent, "Fee transfer failed");
+
+        // 2. Swap işlemi
+        uint256 swapAmount = msg.value - feeBNB;
+        IPancakeRouter(pancakeRouter).swapExactETHForTokens{ value: swapAmount }(
+            amountOutMin,
+            path,
+            msg.sender,
+            block.timestamp + 900
+        );
+
+        // 3. Hermes ödülünü claimable'a ekle
+        claimableHermes[msg.sender] += hermesRewardPerSwap;
+    }
+
+    function claimHermes() external {
+        uint256 reward = claimableHermes[msg.sender];
+        require(reward > 0, "No HERMES to claim");
+
+        claimableHermes[msg.sender] = 0;
+        bool success = IERC20(hermesToken).transfer(msg.sender, reward);
+        require(success, "HERMES transfer failed");
+    }
+
+    function getClaimableHermes(address user) external view returns (uint256) {
+        return claimableHermes[user];
+    }
+}

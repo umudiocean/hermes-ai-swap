@@ -1,0 +1,109 @@
+# Complete Platform Migration Prompt for Replit AI
+
+## ENGLISH VERSION
+
+```
+I need to migrate my entire project from Replit to another hosting platform. Please create a complete, production-ready export package that includes EVERYTHING needed to run this project independently.
+
+**PROJECT URL:** https://www.hermesaiswap.com/
+
+**REQUIREMENTS:**
+1. **Complete Source Code Export**
+   - All React/TypeScript frontend files
+   - All server-side code (Node.js/Express)
+   - All configuration files (package.json, vite.config.ts, etc.)
+   - All environment variables and their descriptions
+   - All static assets (images, fonts, etc.)
+
+2. **Database & Data**
+   - Database schema/structure
+   - Sample data or migrations
+   - Database connection configurations
+
+3. **Build & Deployment Instructions**
+   - Complete setup instructions for new environment
+   - Build commands and scripts
+   - Environment setup guide
+   - Production deployment checklist
+
+4. **Dependencies & Requirements**
+   - Complete package.json with all dependencies
+   - Node.js version requirements
+   - System requirements
+   - Third-party service configurations
+
+5. **Documentation**
+   - README.md with complete setup instructions
+   - API documentation if applicable
+   - Environment variables documentation
+   - Troubleshooting guide
+
+**EXPORT FORMAT:** Please create a downloadable ZIP/RAR file containing:
+- `/src/` - All source code
+- `/public/` - All static assets  
+- `/server/` - Server-side code
+- `/docs/` - Complete documentation
+- `package.json` - Dependencies
+- `README.md` - Setup instructions
+- `.env.example` - Environment variables template
+- `deployment-guide.md` - Production deployment guide
+
+**TARGET PLATFORMS:** The export should work on Vercel, Netlify, Railway, DigitalOcean, or any standard Node.js hosting.
+
+Please ensure the export is COMPLETE and PRODUCTION-READY with no missing files or configurations.
+```
+
+---
+
+## TURKISH VERSION
+
+```
+Replit'teki tüm projemi başka bir hosting platformuna taşımak istiyorum. Bu projeyi bağımsız olarak çalıştırmak için gereken HER ŞEYİ içeren, eksiksiz, production-ready bir export paketi oluştur.
+
+**PROJE URL'İ:** https://www.hermesaiswap.com/
+
+**GEREKSİNİMLER:**
+1. **Tam Kaynak Kod Exportu**
+   - Tüm React/TypeScript frontend dosyaları
+   - Tüm server-side kod (Node.js/Express)
+   - Tüm konfigürasyon dosyaları (package.json, vite.config.ts, vb.)
+   - Tüm environment variable'ları ve açıklamaları
+   - Tüm static asset'ler (resimler, fontlar, vb.)
+
+2. **Veritabanı & Data**
+   - Veritabanı şeması/yapısı
+   - Örnek data veya migration'lar
+   - Veritabanı bağlantı konfigürasyonları
+
+3. **Build & Deployment Talimatları**
+   - Yeni ortam için eksiksiz kurulum talimatları
+   - Build komutları ve script'leri
+   - Environment kurulum rehberi
+   - Production deployment checklist'i
+
+4. **Dependency'ler & Gereksinimler**
+   - Tüm dependency'leri içeren eksiksiz package.json
+   - Node.js versiyon gereksinimleri
+   - Sistem gereksinimleri
+   - Üçüncü parti servis konfigürasyonları
+
+5. **Dokümantasyon**
+   - Eksiksiz kurulum talimatları ile README.md
+   - Varsa API dokümantasyonu
+   - Environment variable'ları dokümantasyonu
+   - Troubleshooting rehberi
+
+**EXPORT FORMATI:** Şunları içeren indirilebilir ZIP/RAR dosyası oluştur:
+- `/src/` - Tüm kaynak kodlar
+- `/public/` - Tüm static asset'ler
+- `/server/` - Server-side kodlar
+- `/docs/` - Eksiksiz dokümantasyon
+- `package.json` - Dependency'ler
+- `README.md` - Kurulum talimatları
+- `.env.example` - Environment variable'ları template'i
+- `deployment-guide.md` - Production deployment rehberi
+
+**HEDEF PLATFORMLAR:** Export Vercel, Netlify, Railway, DigitalOcean veya herhangi bir standart Node.js hosting'de çalışmalı.
+
+Lütfen export'un EKSİKSİZ ve PRODUCTION-READY olduğundan emin ol, hiçbir dosya veya konfigürasyon eksik kalmasın.
+```

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>HermesAI Swap - DeFi Token Exchange</title>
+    <meta name="description" content="HermesAI Swap - Professional DeFi token exchange platform. Swap BNB, HERMES and 600+ tokens with zero fees. Earn 100,000 HERMES rewards per transaction." />
+    
+    <!-- Favicon using Hermes logo -->
+    <link rel="icon" type="image/svg+xml" href="https://hermesaianalyzer.com/wp-content/uploads/2025/06/hermes.svg" />
+    <link rel="icon" type="image/svg+xml" href="/hermes-favicon.svg" />
+    <link rel="apple-touch-icon" sizes="192x192" href="https://hermesaianalyzer.com/wp-content/uploads/2025/06/hermes.svg" />
+    <link rel="shortcut icon" href="https://hermesaianalyzer.com/wp-content/uploads/2025/06/hermes.svg" />
+    
+    <!-- Open Graph for social sharing -->
+    <meta property="og:title" content="HermesAI Swap - DeFi Token Exchange" />
+    <meta property="og:description" content="Professional DeFi token exchange platform. Swap BNB, HERMES and 600+ tokens with zero fees." />
+    <meta property="og:image" content="https://hermesaianalyzer.com/wp-content/uploads/2025/06/hermes.svg" />
+    <meta property="og:type" content="website" />
+    
+    <!-- Cache Control Headers for deployment -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
+    <!-- Theme color for mobile browsers -->
+    <meta name="theme-color" content="#6495ed" />
+    
+    <!-- Content Security Policy for WalletConnect iframe support - Relaxed for deployment -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https:; connect-src 'self' https: wss: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; frame-src 'self' https:; font-src 'self' data: https:;" />
+    
+    <!-- Web App Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- PWA Service Worker Registration - Disabled for deployment troubleshooting -->
+    <script>
+      // Service Worker temporarily disabled for deployment
+      console.log('Service Worker disabled for deployment stability');
+    </script>
+    <script type="module" crossorigin src="/assets/index-Di4TKO3l.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CuTYTAqV.css">
+  </head>
+  <body>
+    <div id="root">
+      <!-- Loading indicator for deployment -->
+      <div id="loading" style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #1a1a1a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #62cbc1;
+        font-family: Inter, system-ui, sans-serif;
+        z-index: 9999;
+      ">
+        <div style="text-align: center;">
+          <div style="
+            width: 40px;
+            height: 40px;
+            border: 3px solid #333;
+            border-top: 3px solid #62cbc1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+          "></div>
+          <div>Loading HermesAI Swap...</div>
+        </div>
+      </div>
+      <style>
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      </style>
+    </div>
+    <script>
+      // Hide loading after React loads
+      setTimeout(() => {
+        const loading = document.getElementById('loading');
+        if (loading) loading.style.display = 'none';
+      }, 5000); // 5 second timeout for loading
+      
+      // Error handling for deployment
+      window.addEventListener('error', (e) => {
+        console.error('Application error:', e.error);
+        const loading = document.getElementById('loading');
+        if (loading) {
+          loading.innerHTML = `
+            <div style="text-align: center; color: #ff6b6b;">
+              <div>❌ Loading Error</div>
+              <div style="font-size: 14px; margin-top: 8px;">Please refresh the page</div>
+              <button onclick="window.location.reload()" style="
+                margin-top: 16px;
+                padding: 8px 16px;
+                background: #62cbc1;
+                color: #000;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-weight: 600;
+              ">Refresh Page</button>
+            </div>
+          `;
+        }
+      });
+    </script>
+  </body>
+</html>

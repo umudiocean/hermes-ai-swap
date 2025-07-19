@@ -1,0 +1,43 @@
+Create a simple static HTML file named `privacy.html` containing the following Privacy Policy for my app “Hermes AI Swap”. I will upload this file to my domain https://www.hermesaiswap.com and serve it as https://www.hermesaiswap.com/privacy.html for Google Play Privacy Policy requirements.
+
+Content:
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy - Hermes AI Swap</title>
+</head>
+<body>
+  <h1>Privacy Policy for Hermes AI Swap</h1>
+  <p>Effective date: July 13, 2025</p>
+
+  <p>Hermes AI Swap (“we”, “our”, or “us”) respects your privacy. This Privacy Policy explains how we collect, use, and protect your information when you use our mobile application.</p>
+
+  <h2>Information We Collect</h2>
+  <p>Hermes AI Swap does not collect or store any personal information. The application operates fully on-chain and interacts directly with blockchain networks via the user's own wallet (e.g., MetaMask, Trust Wallet).</p>
+
+  <h2>Permissions</h2>
+  <p>The application may request limited device permissions (such as camera for QR code scanning), but we do not store or transmit any user data to our servers.</p>
+
+  <h2>Third-Party Services</h2>
+  <p>The app may integrate with third-party wallets or blockchain APIs but we do not control or process your personal data.</p>
+
+  <h2>Data Security</h2>
+  <p>Since no personal data is collected or stored by us, there is no risk of data leakage from our side. The blockchain transactions you perform are subject to the security of the networks you interact with.</p>
+
+  <h2>Children's Privacy</h2>
+  <p>Hermes AI Swap is not intended for use by children under the age of 13 and we do not knowingly collect any personal information from children.</p>
+
+  <h2>Changes to this Policy</h2>
+  <p>We may update this Privacy Policy from time to time. We encourage users to review this page periodically for any changes.</p>
+
+  <h2>Contact Us</h2>
+  <p>If you have any questions about this Privacy Policy, please contact us at: <strong>umudi.ocean@gmail.com</strong></p>
+
+</body>
+</html>
+---
+
+You don’t need to deploy this file, just prepare it for download so I can upload it to https://www.hermesaiswap.com/privacy.html myself.

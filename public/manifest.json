@@ -1,0 +1,16 @@
+{
+  "name": "Hermes AI Swap",
+  "short_name": "HermesSwap",
+  "description": "Decentralized token swapping with AI-powered optimization",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#62cbc1",
+  "icons": [
+    {
+      "src": "/hermes ai logo_1751664533943.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    }
+  ]
+} 

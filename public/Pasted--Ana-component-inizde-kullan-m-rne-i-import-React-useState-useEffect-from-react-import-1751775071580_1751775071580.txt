@@ -1,0 +1,97 @@
+// Ana component'inizde kullanım örneği
+import React, { useState, useEffect } from 'react';
+import { ethers } from 'ethers';
+import HermesBalanceCard from './components/HermesBalanceCard';
+
+function App() {
+  const [provider, setProvider] = useState(null);
+  const [signer, setSigner] = useState(null);
+  const [userAddress, setUserAddress] = useState('');
+
+  // MetaMask bağlantısı
+  const connectWallet = async () => {
+    if (typeof window.ethereum !== 'undefined') {
+      try {
+        // MetaMask'a bağlan
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        
+        // Provider ve signer oluştur
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        const address = await signer.getAddress();
+        
+        setProvider(provider);
+        setSigner(signer);
+        setUserAddress(address);
+        
+        // BSC ağını kontrol et
+        const chainId = await provider.getNetwork();
+        if (chainId.chainId !== 56) {
+          // BSC'ye geç
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x38' }], // 56 in hex
+          });
+        }
+      } catch (error) {
+        console.error("Wallet connection error:", error);
+      }
+    } else {
+      alert('MetaMask yüklü değil!');
+    }
+  };
+
+  // Hesap değişikliklerini dinle
+  useEffect(() => {
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', (accounts) => {
+        if (accounts.length > 0) {
+          setUserAddress(accounts[0]);
+        } else {
+          setUserAddress('');
+        }
+      });
+
+      window.ethereum.on('chainChanged', () => {
+        window.location.reload();
+      });
+    }
+  }, []);
+
+  return (
+    <div className="app">
+      {!userAddress ? (
+        <button onClick={connectWallet}>Cüzdan Bağla</button>
+      ) : (
+        <>
+          {/* Diğer componentler */}
+          <div className="stats-section">
+            <YourStatsCard /> {/* Mevcut stats card */}
+            
+            {/* HERMES Balance Card */}
+            <HermesBalanceCard 
+              userAddress={userAddress}
+              provider={provider}
+            />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Alternatif: Web3 Context kullanımı
+import { useWeb3 } from './contexts/Web3Context';
+
+function DashboardPage() {
+  const { address, provider } = useWeb3();
+  
+  return (
+    <div className="dashboard">
+      <HermesBalanceCard 
+        userAddress={address}
+        provider={provider}
+      />
+    </div>
+  );
+}

@@ -1,0 +1,138 @@
+I have uploaded a full Hermes AI Swap frontend ZIP package. I want you to:
+
+✅ Rebuild this project completely from scratch, but apply the following updates:
+
+---
+
+🔧 PROJECT REQUIREMENTS:
+
+📁 FILE STRUCTURE:
+- Create a clean and deployable frontend based on Vite + React + TypeScript + TailwindCSS
+- Include full src/ folder with main.tsx, App.tsx, all logic/components
+- Add index.html at root with correct script tags and meta
+- Add working vite.config.ts, tsconfig.json, tailwind.config.ts, vercel.json
+
+---
+
+⚙️ CONFIG FILES:
+
+📦 **package.json**
+```json
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit --skipLibCheck"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "ethers": "^6.8.0",
+    "@web3modal/ethers": "5.1.11",
+    "@web3modal/core": "5.1.11",
+    "@web3modal/siwe": "5.1.11",
+    "@web3modal/ui": "5.1.11"
+  }
+}
+📦 vite.config.ts
+
+ts
+Copy
+Edit
+import { defineConfig } from "vite"
+import react from "@vitejs/plugin-react"
+import path from "path"
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "src"),
+    }
+  },
+  build: {
+    outDir: "dist",
+    sourcemap: false,
+    minify: "esbuild",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          web3: ['ethers', '@web3modal/ethers', '@web3modal/core', '@web3modal/ui']
+        }
+      }
+    }
+  },
+  define: {
+    global: "globalThis"
+  }
+})
+📦 vercel.json
+
+json
+Copy
+Edit
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install --legacy-peer-deps",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-XSS-Protection", "value": "1; mode=block" }
+      ]
+    }
+  ]
+}
+📦 tsconfig.json
+
+json
+Copy
+Edit
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "lib": ["DOM", "DOM.Iterable", "ES2020"],
+    "moduleResolution": "Bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "noEmit": true
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}
+🌐 ENVIRONMENT VARIABLES TO SUPPORT:
+
+VITE_WEB3_PROJECT_ID
+
+VITE_NETWORK_ID = 56
+
+VITE_RPC_URL = https://bsc-dataseed1.binance.org/
+
+🎯 FINAL OUTPUT:
+
+Fully working zip/tar.gz package
+
+npm install and npm run build should work
+
+Ready to deploy on Vercel with zero errors
+
+Base it on the uploaded ZIP, but clean and optimize everything from scratch. Deliver final result in .zip format.

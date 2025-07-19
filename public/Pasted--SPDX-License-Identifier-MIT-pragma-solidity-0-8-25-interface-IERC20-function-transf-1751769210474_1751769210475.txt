@@ -1,0 +1,68 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.25;
+
+interface IERC20 {
+    function transfer(address to, uint256 amount) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+}
+
+interface IPancakeRouter02 {
+    function swapExactTokensForETHSupportingFeeOnTransferTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external;
+
+    function WETH() external pure returns (address);
+}
+
+contract HermesToBNBSwapper {
+    address public constant HERMES_TOKEN = 0x9495aB3549338BF14aD2F86CbcF79C7b574bba37;
+    address public constant PANCAKE_ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+
+    event SwapHermesForBNB(
+        address indexed user,
+        uint256 hermesIn
+    );
+
+    function swapHermesForBNBWithSupport(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address to,
+        uint256 deadline
+    ) external {
+        require(amountIn > 0, "Zero amount");
+        require(to != address(0), "Invalid recipient");
+
+        // Transfer Hermes from user to this contract
+        bool success = IERC20(HERMES_TOKEN).transferFrom(msg.sender, address(this), amountIn);
+        require(success, "Hermes transfer failed");
+
+        // Approve router to spend Hermes
+        success = IERC20(HERMES_TOKEN).approve(PANCAKE_ROUTER, amountIn);
+        require(success, "Approve failed");
+
+        // ✅ Burada doğru şekilde path tanımlıyoruz:
+        address ;
+        path[0] = HERMES_TOKEN;
+        path[1] = IPancakeRouter02(PANCAKE_ROUTER).WETH();
+
+        // Swap Hermes to BNB
+        IPancakeRouter02(PANCAKE_ROUTER).swapExactTokensForETHSupportingFeeOnTransferTokens(
+            amountIn,
+            amountOutMin,
+            path,
+            to,
+            deadline
+        );
+
+        emit SwapHermesForBNB(to, amountIn);
+    }
+
+    // Kontrat BNB alabilsin diye
+    receive() external payable {}
+}

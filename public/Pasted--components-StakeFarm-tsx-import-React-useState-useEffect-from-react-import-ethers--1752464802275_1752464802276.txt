@@ -1,0 +1,216 @@
+// components/StakeFarm.tsx
+import React, { useState, useEffect } from 'react';
+import { ethers } from 'ethers';
+import { toast } from 'react-hot-toast';
+
+// StakeFarm Contract ABI (essential functions only)
+const STAKE_FARM_ABI = [
+  "function stakeBNB() external payable",
+  "function stakeUSDT(uint256 amount) external payable", 
+  "function stakeCAKE(uint256 amount) external payable",
+  "function claimRewards(uint256 stakeId) external payable",
+  "function claimAllRewards() external payable",
+  "function unstake(uint256 stakeId) external payable",
+  "function getUserStakes(address user) external view returns (tuple(uint256 amount, uint256 startTime, uint256 lastClaimTime, uint256 totalClaimed, uint8 tokenType, bool isActive)[])",
+  "function calculatePendingRewards(address user, uint256 stakeId) external view returns (uint256)",
+  "function getTotalPendingRewards(address user) external view returns (uint256)",
+  "function canUnstake(address user, uint256 stakeId) external view returns (bool)",
+  "function getStakeUnlockTime(address user, uint256 stakeId) external view returns (uint256)",
+  "function totalValueLocked(uint8 tokenType) external view returns (uint256)"
+];
+
+// Contract addresses
+const STAKE_FARM_ADDRESS = ""; // Deploy edilince buraya yazılacak
+const USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955";
+const CAKE_ADDRESS = "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82";
+
+// Token types enum
+enum TokenType {
+  BNB = 0,
+  USDT = 1,
+  CAKE = 2
+}
+
+const TOKEN_NAMES = ['BNB', 'USDT', 'CAKE'];
+const TOKEN_SYMBOLS = ['BNB', 'USDT', 'CAKE'];
+
+interface StakeInfo {
+  amount: string;
+  startTime: number;
+  lastClaimTime: number;
+  totalClaimed: string;
+  tokenType: TokenType;
+  isActive: boolean;
+  stakeId: number;
+  pendingRewards: string;
+  canUnstake: boolean;
+  unlockTime: number;
+}
+
+const StakeFarm: React.FC = () => {
+  const [account, setAccount] = useState<string>('');
+  const [provider, setProvider] = useState<ethers.providers.Web3Provider | null>(null);
+  const [contract, setContract] = useState<ethers.Contract | null>(null);
+  const [userStakes, setUserStakes] = useState<StakeInfo[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedToken, setSelectedToken] = useState<TokenType>(TokenType.BNB);
+  const [stakeAmount, setStakeAmount] = useState('');
+  const [totalPendingRewards, setTotalPendingRewards] = useState('0');
+
+  // Fees
+  const STAKE_UNSTAKE_FEE = "0.0008";
+  const CLAIM_FEE = "0.008";
+
+  // Connect wallet
+  const connectWallet = async () => {
+    try {
+      if (typeof window.ethereum !== 'undefined') {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        const signer = provider.getSigner();
+        const address = await signer.getAddress();
+        
+        setProvider(provider);
+        setAccount(address);
+        
+        const stakeFarmContract = new ethers.Contract(
+          STAKE_FARM_ADDRESS,
+          STAKE_FARM_ABI,
+          signer
+        );
+        setContract(stakeFarmContract);
+        
+        toast.success('Wallet connected successfully!');
+      } else {
+        toast.error('MetaMask not found!');
+      }
+    } catch (error) {
+      console.error('Error connecting wallet:', error);
+      toast.error('Failed to connect wallet');
+    }
+  };
+
+  // Load user stakes
+  const loadUserStakes = async () => {
+    if (!contract || !account) return;
+    
+    try {
+      setLoading(true);
+      const stakes = await contract.getUserStakes(account);
+      const totalPending = await contract.getTotalPendingRewards(account);
+      
+      const formattedStakes: StakeInfo[] = [];
+      
+      for (let i = 0; i < stakes.length; i++) {
+        const stake = stakes[i];
+        if (stake.isActive) {
+          const pendingRewards = await contract.calculatePendingRewards(account, i);
+          const canUnstake = await contract.canUnstake(account, i);
+          const unlockTime = await contract.getStakeUnlockTime(account, i);
+          
+          formattedStakes.push({
+            amount: ethers.utils.formatEther(stake.amount),
+            startTime: stake.startTime.toNumber(),
+            lastClaimTime: stake.lastClaimTime.toNumber(),
+            totalClaimed: ethers.utils.formatEther(stake.totalClaimed),
+            tokenType: stake.tokenType,
+            isActive: stake.isActive,
+            stakeId: i,
+            pendingRewards: ethers.utils.formatEther(pendingRewards),
+            canUnstake: canUnstake,
+            unlockTime: unlockTime.toNumber()
+          });
+        }
+      }
+      
+      setUserStakes(formattedStakes);
+      setTotalPendingRewards(ethers.utils.formatEther(totalPending));
+    } catch (error) {
+      console.error('Error loading stakes:', error);
+      toast.error('Failed to load stakes');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Stake tokens
+  const handleStake = async () => {
+    if (!contract || !stakeAmount || parseFloat(stakeAmount) <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      let tx;
+      
+      if (selectedToken === TokenType.BNB) {
+        const totalValue = ethers.utils.parseEther(
+          (parseFloat(stakeAmount) + parseFloat(STAKE_UNSTAKE_FEE)).toString()
+        );
+        tx = await contract.stakeBNB({ value: totalValue });
+        
+      } else {
+        const amount = ethers.utils.parseEther(stakeAmount);
+        const feeValue = ethers.utils.parseEther(STAKE_UNSTAKE_FEE);
+        
+        // First approve token spending
+        const tokenAddress = selectedToken === TokenType.USDT ? USDT_ADDRESS : CAKE_ADDRESS;
+        const tokenContract = new ethers.Contract(
+          tokenAddress,
+          ["function approve(address spender, uint256 amount) external returns (bool)"],
+          contract.signer
+        );
+        
+        const approveTx = await tokenContract.approve(STAKE_FARM_ADDRESS, amount);
+        await approveTx.wait();
+        
+        // Then stake
+        if (selectedToken === TokenType.USDT) {
+          tx = await contract.stakeUSDT(amount, { value: feeValue });
+        } else {
+          tx = await contract.stakeCAKE(amount, { value: feeValue });
+        }
+      }
+      
+      await tx.wait();
+      toast.success(`Successfully staked ${stakeAmount} ${TOKEN_SYMBOLS[selectedToken]}!`);
+      setStakeAmount('');
+      loadUserStakes();
+      
+    } catch (error: any) {
+      console.error('Error staking:', error);
+      toast.error(error.reason || 'Failed to stake tokens');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Claim rewards
+  const handleClaim = async (stakeId: number) => {
+    if (!contract) return;
+    
+    try {
+      setLoading(true);
+      const feeValue = ethers.utils.parseEther(CLAIM_FEE);
+      const tx = await contract.claimRewards(stakeId, { value: feeValue });
+      await tx.wait();
+      
+      toast.success('Rewards claimed successfully!');
+      loadUserStakes();
+      
+    } catch (error: any) {
+      console.error('Error claiming rewards:', error);
+      toast.error(error.reason || 'Failed to claim rewards');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Claim all rewards
+  const handleClaimAll = async () => {
+    if (!contract || userStakes.length === 0) return;
+    
+    try {
+      setLoading(true);
+      const claimableCount =
